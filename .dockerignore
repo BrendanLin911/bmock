@@ -4,6 +4,7 @@
 *
 
 !requirements-runtime.txt
+!gunicorn.conf.py
 !rules.yaml
 !vmock_clone/
 !web/
