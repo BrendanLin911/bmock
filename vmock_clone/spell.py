@@ -23,6 +23,14 @@ from .lexicons import COMMONWEALTH_OK, MONTH_TOKENS, TECH_WHITELIST
 # Words VMock surfaced for re-examination that a hunspell dictionary accepts.
 FORCE_UNKNOWN = {"definer", "duffing"}
 
+# Mirror of FORCE_UNKNOWN: ordinary business-English closed compounds that
+# VMock's own dictionary evidently carries.  OBSERVED on Ziqi's resume --
+# "lifecycle" appears in a bullet and VMock listed it in NEITHER the red
+# ("misspelled") nor the yellow ("re-examine") bucket, while flagging the two
+# real typos on the same page.  Only words VMock has been seen NOT to flag
+# belong here.
+FORCE_KNOWN = {"lifecycle", "lifecycles"}
+
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "en_us_words.txt")
 
 # Unicode letters, so an accented proper noun stays one token. Matching only
@@ -146,14 +154,20 @@ def check(
             bad.append(raw)
             seen.add(low)
             continue
-        if low in words or low in TECH_WHITELIST or low in MONTH_TOKENS or low in extra_ok:
+        if (low in words or low in TECH_WHITELIST or low in MONTH_TOKENS
+                or low in extra_ok or low in FORCE_KNOWN):
             continue
         if commonwealth_ok and low in COMMONWEALTH_OK:
             continue
         # hyphenated or slashed compounds pass if every part is a word
         parts = [p for p in re.split(r"[-'/]", low) if p]
         if len(parts) > 1 and all(
+            # A productive prefix or suffix is a legitimate half of a
+            # hyphenated compound even though it is not a headword itself.
+            # OBSERVED: "pre-launch" sits in Ziqi's resume and VMock flagged
+            # neither it nor any other "pre-"/"-based" form, red or yellow.
             p in words or p in TECH_WHITELIST or len(p) < 3
+            or p in _PREFIXES or p in _SUFFIXES
             or (not aggressive and _derives_from_word(p, words))
             for p in parts
         ):

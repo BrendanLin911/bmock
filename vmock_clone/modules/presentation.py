@@ -55,6 +55,22 @@ def _date_x1(line: Line, raw: str):
     return None
 
 
+FULL_MONTHS = {"january", "february", "march", "april", "june", "july",
+               "august", "september", "october", "november", "december"}
+ABBREV_MONTHS = {"jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep",
+                 "sept", "oct", "nov", "dec"}
+
+
+def _month_token_style(tok: str):
+    """full | abbrev | None.  "May" is ambiguous and carries no style."""
+    low = tok.lower().strip(".")
+    if low in FULL_MONTHS:
+        return "full"
+    if low in ABBREV_MONTHS:
+        return "abbrev"
+    return None
+
+
 def _date_style(raw: str) -> str:
     low = raw.lower()
     if NUMERIC_DATE_RE.search(low):
@@ -176,6 +192,23 @@ def _chk_date_formatting(doc, st, cfg):
         for line in sec.lines + [l for e in sec.entries for l in e.header_lines]:
             if EXPECTED_LIKE_RE.search(line.text) and not MONTH_YEAR_OK_RE.search(line.text):
                 bad.append(line.text.strip()[:40])
+    # OBSERVED rule headline: "Consistent date format throughout the section".
+    # Ziqi's resume writes "Aug"/"Jul"/"Sep"/"Jan" everywhere but "June 2026"
+    # on one entry, and VMock FAILS it; Yuxuan / Ryan / Brendan-93 each use one
+    # month style throughout and pass.  "May" is spelled the same either way,
+    # so it can never be evidence of a style, and neither can a bare year.
+    styles = {}
+    for sec in st.sections:
+        for entry in sec.entries:
+            for span in entry.dates:
+                for tok in re.findall(r"[A-Za-z]+", span.raw):
+                    style = _month_token_style(tok)
+                    if style:
+                        styles.setdefault(style, []).append(tok)
+    if len(styles) > 1:
+        bad.append("mixed month styles: " + "; ".join(
+            f"{k} ({', '.join(dict.fromkeys(v))})" for k, v in styles.items()))
+
     bad = list(dict.fromkeys(bad))
     return Check("date_formatting", "Date Formatting", not bad,
                  "Consistent date format throughout the section (Acceptable format "
@@ -409,12 +442,19 @@ def _essential_sections(doc: Document, st: Structure, cfg: Config) -> SubScore:
                         fix=f"Add a clearly titled {need.title()} section.")
             )
 
+    per_unknown = float(cfg.get("presentation.points_per_unknown_section", 1.0))
+    cap_unknown = float(cfg.get("presentation.max_unknown_section_loss", 2.0))
+    unknown_lost = 0.0
     for sec in st.sections:
         if sec.canonical is None:
+            unknown_lost = min(cap_unknown, unknown_lost + per_unknown)
             sub.findings.append(
-                Finding("warn", f"Section heading not recognised: “{sec.raw_heading}”",
-                        0.0, fix="Use a conventional heading so the parser can classify the content.")
+                Finding("error", f"Section heading not recognised: “{sec.raw_heading}”",
+                        per_unknown,
+                        fix="Use a conventional heading so the section maps to a "
+                            "standard resume section.")
             )
+    lost += unknown_lost
 
     if cfg.quirk("heading_ampersand_strict"):
         pts = cfg.quirk_points("heading_ampersand_strict", 3)
@@ -675,12 +715,15 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         _section_specific(doc, st, cfg),
         _spell_check(doc, st, cfg),
     ]
+    graded = set(cfg.get("presentation.graded_subs",
+                         ["essential_sections", "spell_check"]) or [])
     if cfg.get("presentation.all_or_nothing", True):
         # A sub-parameter is full marks or nothing: see the note in rules.yaml.
         for sub in subs:
             failed = any(f.severity == "error" and f.points_lost > 0
                          for f in sub.all_findings)
-            sub.points = 0.0 if failed else sub.max_points
+            if sub.key not in graded:
+                sub.points = 0.0 if failed else sub.max_points
             if failed:
                 sub.status = "Needs Work!"
             elif sub.status != "On Track!":

@@ -106,6 +106,18 @@ presentation:
   # Solving the five observations for integer weights summing to 30 yields
   # exactly one solution:
   all_or_nothing: true
+  # ...but only for the sub-parameters VMock renders as a pass/fail check list.
+  # Essential Sections and Spell Check accumulate point deductions instead:
+  #   Ziqi   0 + 1 + 9 + 0 + (3-2 misspellings) = 11  (VMock 11)
+  #   M1     0 + 0 + 9 + 0 +  3                 = 12  (VMock 12)
+  #   Yuxuan 16 + 1 + (9-1 unmapped heading) + 1 + 3  = 29  (VMock 29)
+  # That is the only assignment that hits all three known totals at once.
+  graded_subs: [essential_sections, spell_check]
+  # OBSERVED (Yuxuan, 29/30 with every check green): the one thing wrong with
+  # that resume is the merged heading "RESEARCH & PROJECTS", which maps to no
+  # standard section.
+  points_per_unknown_section: 1.0
+  max_unknown_section_loss: 2.0   # an alias gap must never gut the sub-parameter
   overall_format: 16
   # NOT OBSERVED: VMock never displays per-check point values, only pass/fail
   # chips and the module total. This cost-per-failed-check is fitted to the one
@@ -303,6 +315,7 @@ competencies:
   # that makes OUR unit counts reproduce VMock's published module scores
   # (23/30 on Masters_1 exactly, 29/30 on two of Brendan's, 29 vs 30 on
   # Yuxuan's). It is a calibration of this detector, not a claim about VMock's.
+  distinct_evidence: true
   units_for_full_credit: 5
   # OBSERVED: the Teamwork bullets VMock highlighted on Masters_1 were the four
   # WORK bullets, not the paraphrases of them inside the Personal Statement, so

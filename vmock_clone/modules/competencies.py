@@ -75,6 +75,22 @@ def _language_evidence(st: Structure):
     return best
 
 
+_DATE_ONLY_RE = re.compile(
+    r"^[\s\-\u2013\u2014|,.]*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
+    r"|\d{4}|\d{1,2}|present|current|to|now|[\s\-\u2013\u2014|,.])+$",
+    re.I,
+)
+
+
+def _is_date_only(text: str) -> bool:
+    """A line that is nothing but a date range demonstrates no skill.
+
+    "June 2026 - Present" was matching the Communication term `present` and
+    scoring the competency once per dated entry.
+    """
+    return bool(_DATE_ONLY_RE.match((text or "").strip()))
+
+
 def _collect_units(st: Structure):
     """(text, source_label, weight_class) tuples covering the whole document."""
     units = []
@@ -122,6 +138,7 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
     # lines and the entire SKILLS block as well as the bullets. Competencies
     # are therefore scanned across the whole document.
     skip = set(cfg.get("competencies.skip_sections", []) or [])
+    distinct_evidence = bool(cfg.get("competencies.distinct_evidence", False))
     bullets = []
     for sec in st.sections:
         if sec.canonical in skip:
@@ -129,7 +146,8 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         seen = set()
         for entry in sec.entries:
             for hl in entry.header_lines:
-                bullets.append(hl.body_text)
+                if not _is_date_only(hl.body_text):
+                    bullets.append(hl.body_text)
                 seen.add(id(hl))
             for b in entry.bullets:
                 bullets.append(b.body_text)
@@ -145,11 +163,24 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
     for comp in known:
         facets = _PATTERNS.get(comp, {})
         hits = []
+        distinct = set()
         for text in bullets:
-            for facet, pats in facets.items():
-                if any(pat.search(text) for _, pat in pats):
-                    hits.append(text)
-                    break
+            found = {
+                term
+                for pats in facets.values()
+                for term, pat in pats
+                if pat.search(text)
+            }
+            if found:
+                hits.append(text)
+                distinct |= found
+
+        # Four bullets that all open "Supported" are one skill shown four
+        # times, not four skills. VMock resolves competency evidence against a
+        # skills database, and on the same resume its Overuse panel flags the
+        # very words that were inflating this count. Counting lines instead of
+        # skills let a narrow resume saturate every competency.
+        units = len(distinct) if distinct_evidence else len(hits)
 
         label = COMPETENCY_LABELS.get(comp, comp.title())
         noun = label.lower()
@@ -157,7 +188,7 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         # over-reading of two reports: a third resume scored Competencies 29/30,
         # which no combination of {6.0, 2.5, 0.0} over five competencies can
         # produce. Fine-grained scoring reproduces 30, 29 and 23 alike.
-        raw = good_pts * min(1.0, len(hits) / good_at) if good_at else good_pts
+        raw = good_pts * min(1.0, units / good_at) if good_at else good_pts
         pts = round(raw / step) * step
         if pts >= good_chip:
             status, sev = "Good Job!", "good"
@@ -179,6 +210,7 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         sub.detail = {
             "bullets_highlighted": len(hits),
             "units_for_full_credit": good_at,
+            "distinct_skills": len(distinct),
             "examples": hits[:6],
             # VMock also shows "Experiences you can consider" chips drawn from
             # its ~10,000-skill database. Not reproducible from a lexicon and

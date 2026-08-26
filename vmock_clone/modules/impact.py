@@ -26,6 +26,7 @@ from ..lexicons import (
     FILLER_ADVERBS,
     IRREGULAR_PARTICIPLES,
     IRREGULAR_PAST,
+    FIRST_PERSON_PRONOUNS,
     NON_VERB_OPENERS,
     NOUN_PHRASE_OPENERS,
     PRONOUNS,
@@ -139,6 +140,26 @@ CREDENTIAL_RE = re.compile(
 # Leading adverbs: "Independently constructed ..." opens with a verb as far as
 # a reader is concerned. Real VMock does not fail these.
 LEADING_ADVERB_RE = re.compile(r"^\s*([A-Za-z]+ly)\b")
+
+
+# An entry DETAIL line: "GPA: 3.75 / 4.00", "Minor: Statistics", "Thesis: ...".
+# It carries a bullet glyph but states a fact, not an accomplishment. VMock's
+# Specifics panel green-highlights the GPA on such a line -- so the line IS read
+# for content -- while its Action Oriented panel raises nothing about it. Ziqi's
+# report is the direct evidence: Action Oriented is a green tick even though the
+# Education section leads with "GPA: 3.75 / 4.00".
+DETAIL_LABEL_RE = re.compile(
+    r"""^\s*(cumulative\s+|overall\s+|major\s+|degree\s+)?
+        (gpa|g\.p\.a\.?|grade|grades|major|minor|concentration|
+         specialization|specialisation|thesis|dissertation|advisor|adviser|
+         expected\s+graduation|graduation|honors|honours|distinction)
+        \s*[:\u2013\u2014-]""",
+    re.I | re.X,
+)
+
+
+def is_detail_line(text: str) -> bool:
+    return bool(DETAIL_LABEL_RE.match(text or ""))
 
 
 def is_list_line(text: str) -> bool:
@@ -354,20 +375,24 @@ def _action_oriented(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
         "weak": float(w.get("weak", 0.2)),
         "none": float(w.get("none", 0.0)),
     }
-    score = sum(weights[f.verb_tier] for f in fbs) / len(fbs)
+    # Entry detail lines ("GPA: 3.75 / 4.00") are not accomplishment bullets;
+    # VMock does not read them for an opening verb. They stay in `fbs` because
+    # Specifics does count the numbers they carry.
+    scored = [f for f in fbs if not is_detail_line(f.text)] or fbs
+    score = sum(weights[f.verb_tier] for f in scored) / len(scored)
     sub.points = clamp(mx * score, 0, mx)
 
-    counts = Counter(f.verb_tier for f in fbs)
-    for f in [x for x in fbs if x.verb_tier == "none"][:5]:
+    counts = Counter(f.verb_tier for f in scored)
+    for f in [x for x in scored if x.verb_tier == "none"][:5]:
         sub.findings.append(
             Finding("error", f"Bullet {f.index + 1} does not start with an action verb.",
-                    mx / max(1, len(fbs)), evidence=f.text[:100], line_index=f.index,
+                    mx / max(1, len(scored)), evidence=f.text[:100], line_index=f.index,
                     fix="Open with a past-tense verb describing what you did: Engineered, Negotiated, Automated.")
         )
-    for f in [x for x in fbs if x.verb_tier == "weak"][:5]:
+    for f in [x for x in scored if x.verb_tier == "weak"][:5]:
         sub.findings.append(
             Finding("warn", f"Bullet {f.index + 1} opens with the weak verb “{f.verb}”.",
-                    mx * 0.5 / max(1, len(fbs)), evidence=f.text[:100], line_index=f.index,
+                    mx * 0.5 / max(1, len(scored)), evidence=f.text[:100], line_index=f.index,
                     fix="Swap for a verb that claims ownership: Led, Built, Delivered, Analyzed.")
         )
     passive = [x for x in fbs if not x.active_voice]
@@ -401,6 +426,15 @@ def _specifics(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
     t_component = min(1.0, t_share / t_target) if t_target else 1.0
     q_weight = float(spec.get("quantification_weight", 0.7))
     raw = q_weight * q_component + (1.0 - q_weight) * t_component
+    # OBSERVED, and the single hardest fact about this sub-parameter: Ziqi's
+    # resume carries a number in 1 bullet out of 19 and still scores Impact
+    # 34/40 -- the same as a resume with 9 of 14 quantified. VMock's Specifics
+    # panel told Ziqi to add quantification in three separate sections, so it
+    # SEES the problem; it just does not price it at more than a point. The
+    # floor is what encodes that: Specifics ranges over the top slice of its
+    # own maximum, not over the whole of it.
+    floor = float(spec.get("floor", 0.0))
+    raw = floor + (1.0 - floor) * raw
 
     n_passive = sum(1 for f in fbs if not f.active_voice)
     penalty = min(0.25, (n_passive / len(fbs)) * passive_pen)
@@ -448,6 +482,14 @@ def _specifics(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
         )
     if q_share >= q_target and t_share >= t_target:
         sub.findings.append(Finding("good", "Bullets are concrete: numbers and named tools throughout."))
+    # OBSERVED: Ziqi's Specifics chip reads "On Track!" while its points sit at
+    # 94% of the sub-parameter -- far above the 83% that would otherwise print
+    # "Good Job!". VMock's chip is a categorical judgement on whether any
+    # section still needs numbers, not a re-reading of the points. Set it here
+    # so the panel and the number can disagree, the way the product does.
+    sub.status = ("Good Job!" if q_share >= q_target and not poor
+                  else "On Track!" if q_share > 0 or t_share >= t_target
+                  else "Needs Work!")
     sub.detail = {
         "quantified_share": round(q_share, 3),
         "tools_share": round(t_share, 3),
@@ -557,8 +599,12 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
             # ("model training", "model rollback"); "Support/Supporting" x3 WAS
             # flagged and is verbal throughout. Require the inflected -ed/-ing
             # forms to be at least half of all occurrences.
+            # "Built" is as much a past-tense verb form as "Supported"; the
+            # endswith test alone missed every irregular past, which is why
+            # "Built x3" was never flagged on Ziqi's resume though VMock flags it.
             infl = sum(n for f, n in forms.items()
-                       if f.lower().endswith(("ed", "ing")))
+                       if f.lower().endswith(("ed", "ing"))
+                       or f.lower() in IRREGULAR_PAST)
             if infl * 2 < total:
                 continue
         if total >= threshold:
@@ -569,6 +615,7 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
     flagged.sort(key=lambda kv: (-kv[1], kv[0]))
 
     if not flagged:
+        sub.status = "Good Job!"
         sub.findings.append(Finding("good", "No overused words detected."))
         sub.detail = {"threshold": threshold, "flagged": []}
         return sub
@@ -590,6 +637,11 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
                 fix="Revise the resume content to minimize the use of overused "
                     "words as much as possible.")
     )
+    # OBSERVED on all three reports read so far: two flagged words print
+    # "On Track!", none prints the green tick. The chip counts chips; it is not
+    # a restatement of the points, which barely move (see full_loss_at_groups).
+    needs_work_at = int(r.get("chip_needs_work_at_groups", 3))
+    sub.status = "Needs Work!" if len(flagged) >= needs_work_at else "On Track!"
     sub.detail = {"threshold": threshold, "flagged": flagged[:20],
                   "reported": shown}
     return sub
@@ -597,7 +649,10 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
 
 def _overuse_key(word: str) -> str:
     """Collapse inflections so Provided/Providing/Provide count as one word."""
-    for cand in sorted(lemmas(word), key=len):
+    # Sort by (length, spelling): length alone leaves ties -- "built" and
+    # "build" are both 5 letters -- and a set's iteration order depends on
+    # PYTHONHASHSEED, so the same resume scored differently between runs.
+    for cand in sorted(lemmas(word), key=lambda c: (len(c), c)):
         if len(cand) >= 4:
             return cand
     return word
@@ -619,6 +674,8 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
     w_fill = float(r.get("filler_weight", 0.5))
     w_pron = float(r.get("pronoun_weight", 0.5))
     include_articles = bool(r.get("include_articles", True))
+    pronoun_set = (FIRST_PERSON_PRONOUNS if bool(r.get("first_person_only", True))
+                   else PRONOUNS)
 
     texts = ([t for t, _, _ in _text_units(st, cfg)] if scan_all
              else [f.text for f in fbs])
@@ -640,16 +697,19 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
                 pronouns[phrase.title()] += n
         for i, tok in enumerate(toks):
             t = tok.lower()
-            if t in PRONOUNS:
+            if t in pronoun_set:
                 # OBSERVED: VMock's Specifics panel green-highlights "I-III" and
                 # "II" as quantification, so a bare capital I in a course code
                 # ("Linear Algebra I-II", "Computer Science I.") is a roman
                 # numeral to VMock, not a pronoun. Only count "I" when a
                 # lowercase word follows it, which is how it reads in prose
                 # ("I am", "I led").
-                if tok == "I":
+                if tok.isupper():
+                    # "Linear Algebra I-II", "NTU Course Project - ME 5025":
+                    # an all-caps token is a numeral or a course code, not
+                    # prose. VMock green-highlights "I-III" as quantification.
                     nxt = toks[i + 1] if i + 1 < len(toks) else ""
-                    if not (nxt[:1].islower()):
+                    if not nxt[:1].islower():
                         continue
                 pronouns[tok.title() if len(tok) > 1 else tok.upper()] += 1
             elif t in FILLER_ADVERBS or t in BUZZWORDS:
@@ -675,7 +735,14 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
     # rate. The ramp is therefore over counts.
     f_full = float(r.get("filler_full_at", 16))
     p_full = float(r.get("pronoun_full_at", 8))
-    lost = mx * min(1.0, w_fill * min(1.0, n_fill / f_full)
+    # A handful of "the"s is unavoidable in English and VMock does not appear to
+    # charge for them: the 88-scoring resume carries five and the 93-scoring one
+    # zero, and they are a third of a point apart on Impact. Only the excess
+    # over a small allowance is priced. Pronouns get no allowance -- one "I" is
+    # already a rule break.
+    f_free = float(r.get("filler_free_allowance", 0.0))
+    billable_fill = max(0.0, n_fill - f_free)
+    lost = mx * min(1.0, w_fill * min(1.0, billable_fill / f_full)
                         + w_pron * min(1.0, n_pron / p_full))
     sub.points = clamp(mx - lost, 0, mx)
 
@@ -699,6 +766,13 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
         )
     if not filler and not pronouns:
         sub.findings.append(Finding("good", "No filler words or personal pronouns detected."))
+
+    # OBSERVED chip, and categorical like the others: Masters_1, whose panel
+    # lists both filler words and personal pronouns, reads "Needs Work!";
+    # Ziqi's, with neither list, is a green tick. A personal pronoun is a rule
+    # break rather than a matter of degree, so it alone drops the chip to red.
+    sub.status = ("Needs Work!" if pronouns
+                  else "On Track!" if filler else "Good Job!")
 
     sub.detail = {
         "filler": filler.most_common(20),
@@ -939,8 +1013,11 @@ def score(doc: Document, st: Structure, cfg: Config) -> Tuple[ModuleScore, List[
         if not s_.max_points:
             continue
         ratio = s_.points / s_.max_points
-        s_.status = ("Good Job!" if ratio >= good_at
-                     else "On Track!" if ratio >= track_at else "Needs Work!")
+        # Specifics, Overuse and Extra-curriculars set their own chip from the
+        # observed categorical rule; the ratio only decides the rest.
+        if not s_.status:
+            s_.status = ("Good Job!" if ratio >= good_at
+                         else "On Track!" if ratio >= track_at else "Needs Work!")
         # OBSERVED: at "Good Job!" the panel carries the praise line and nothing
         # else. Masters_1 has a bullet opening on a noun and another opening on
         # "Provided", and its Action Oriented panel still said only "You have

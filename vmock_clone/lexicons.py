@@ -100,6 +100,10 @@ STANDARD_VERBS = {
     # "Action Oriented - Good Job!", so VMock plainly recognises them
     "fit", "derive", "prove", "compare", "harmonize", "harmonise",
     "characterize", "characterise", "formulate", "parameterize",
+    # OBSERVED false negatives: real bullets opening with these were
+    # scored as "does not start with an action verb".
+    "discover", "uncover", "diagnose", "spearhead", "curate",
+    "prototype", "instrument", "orchestrate", "triage", "reconcile",
 }
 
 WEAK_VERBS = {
@@ -152,8 +156,12 @@ NON_VERB_OPENERS = (
     "responsible for", "responsibilities included", "duties included",
     "duties involved", "tasked with", "in charge of", "was responsible",
     "worked as", "role involved", "job involved", "position involved",
-    "helped to", "assisted with", "part of a team", "member of a team",
+    "helped to", "part of a team", "member of a team",
     "my role", "this role", "successfully completed",
+    # "assisted with" was here and is deliberately NOT: OBSERVED, Ziqi opens a
+    # bullet with "Assisted with operational and compliance initiatives" and
+    # VMock's Action Oriented panel is a green tick with no issue raised. It is
+    # a weak verb ("assist" is in WEAK_VERBS), not a non-verb opener.
 )
 
 # ---------------------------------------------------------------------------
@@ -187,6 +195,18 @@ PRONOUNS = {
     "i", "me", "my", "mine", "myself", "we", "us", "our", "ours", "ourselves",
     "you", "your", "yours", "he", "him", "his", "she", "her", "hers", "they",
     "them", "their", "theirs", "it", "its",
+}
+
+# The subset VMock actually deducts for. OBSERVED list on Masters_1: I 7, My 4,
+# I am 3, I will 1, I have 1 -- first person throughout. Third-person "it",
+# "its", "their" appear in perfectly good bullets ("before it affects
+# production", "examined its intended motion") on resumes that scored 88 and 93,
+# so they are not what VMock means by "personal pronouns which should be
+# avoided".
+FIRST_PERSON_PRONOUNS = {
+    "i", "me", "my", "mine", "myself",
+    "we", "us", "our", "ours", "ourselves",
+    "you", "your", "yours",
 }
 
 # OBSERVED: VMock reports pronoun *phrases* as single items, e.g. "I am 3",
@@ -309,17 +329,14 @@ COMPETENCY_LEXICON = {
         # such resumes -- artefacts that exist to convey information to someone.
         "artifacts_teaching": {
             "notes", "note-taking", "transcription", "transcript",
-            "translation", "translate", "dashboard", "dashboards",
-            "visualization", "visualisation", "readme", "docs", "guide",
+            "translation", "translate", "readme", "docs", "guide",
             "tutorial", "leaderboard", "paper", "papers", "publication",
             "poster", "summary", "summarize", "summarized", "annotate",
-            "annotated", "labeling", "labelling", "feedback", "survey",
-            "surveys", "review", "reviewed", "explained", "walkthrough",
+            "annotated", "labeling", "labelling", "explained", "walkthrough",
             "demo", "demoed", "teaching assistant", "lab sections",
             "office hours", "students", "student", "course", "coursework",
             "instruction", "instructed", "tutoring", "taught", "curriculum",
-            "reporting", "readable", "interface", "front-end", "frontend",
-            "user-facing", "ui", "ux", "chat", "prompt", "prompting",
+            "readable", "interface", "user-facing", "chat", "prompt", "prompting",
         },
     },
     "leadership": {
@@ -343,30 +360,29 @@ COMPETENCY_LEXICON = {
         # it reads is plainly "who was answerable for this", not job titles.
         "own_drive": {
             "own", "owns", "owned", "ownership", "drove", "drive", "driving",
-            "initiative", "board", "board seat", "coo", "ceo", "cto", "vp",
+            "board", "board seat", "coo", "ceo", "cto", "vp",
             "sole", "solely", "responsible", "accountable", "ran", "run",
             "running", "set up", "stood up", "founded", "co-founded",
-            "cofounded", "launch", "launched", "roadmap", "hired", "hiring",
-            "headcount", "recruited", "onboarding", "mentored", "trained",
-            "decided", "decision", "policy", "standards", "convened",
-            "end to end", "end-to-end", "from scratch", "greenfield",
+            "cofounded", "launched", "roadmap", "hired", "hiring",
+            "headcount", "recruited", "mentored", "trained",
+            "decided", "decision", "policy", "convened",
+            "from scratch", "greenfield",
         },
     },
     "teamwork": {
         "collaborate_relationships": {
             "collaborate", "collaborated", "collaboration", "partner",
-            "partnered", "partnership", "team", "teams", "teamed", "joint",
+            "partnered", "partnership", "team", "teamed", "joint",
             "co-authored", "co-led", "co-founded", "co-founder",
-        "co-created", "co-developed", "co-designed", "co-built", "co-hosted", "peer", "peers", "committee", "cohort",
-            "alliance", "coalition", "worked with", "alongside", "contributed",
+        "co-created", "co-developed", "co-designed", "co-built", "co-hosted", "peer", "peers", "committee", "coalition", "worked with", "alongside", "contributed",
             "cross-team", "interdisciplinary", "member",
         },
         "support_service": {
             "support", "supported", "assist", "assisted", "serve", "served",
-            "service", "customer", "customers", "help desk", "helpdesk",
-            "troubleshoot", "troubleshot", "resolve", "resolved", "respond",
-            "responded", "maintain", "maintained", "administer", "administered",
-            "processed", "fulfilled", "escalated", "ticket", "tickets", "sla",
+            "service", "help desk", "helpdesk",
+            "troubleshoot", "troubleshot", "respond",
+            "responded", "administer", "administered",
+            "fulfilled", "escalated", "ticket", "tickets", "sla",
         },
         # Working into someone else's system or handing work on. On the two
         # resumes VMock rated Teamwork "Good Job!", this is the only teamwork
@@ -375,8 +391,7 @@ COMPETENCY_LEXICON = {
             "integrate", "integrated", "integration", "contributor",
             "contributors", "commits", "handoff", "handed off", "shared",
             "sharing", "reused", "adopted", "adoption", "downstream",
-            "upstream", "staff", "colleague", "colleagues", "students",
-            "clients", "users", "reviewers", "reviewing", "code review",
+            "upstream", "colleague", "colleagues", "reviewers", "code review",
             "pair", "paired", "pairing", "coordination", "with the team",
             "other four", "teammates", "collaborators", "consortium",
             "open-source", "open source", "community", "workshop",
@@ -385,13 +400,12 @@ COMPETENCY_LEXICON = {
     "initiative": {
         "create_modify": {
             "create", "created", "build", "built", "design", "designed",
-            "develop", "developed", "launch", "launched", "found", "founded",
+            "develop", "developed", "launched", "founded",
             "establish", "established", "initiate", "initiated", "introduce",
             "introduced", "pioneer", "pioneered", "prototype", "prototyped",
             "invent", "invented", "redesign", "redesigned", "revamp",
             "revamped", "automate", "automated", "streamline", "streamlined",
-            "from scratch", "ground up", "first", "novel",
-        },
+            "from scratch", "ground up", },
         "teach_mentor": {
             "teach", "taught", "mentor", "mentored", "tutor", "tutored",
             "train", "trained", "coach", "coached", "instruct", "instructed",
