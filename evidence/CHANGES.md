@@ -124,6 +124,10 @@ Yuxuan's resume reads `GPA: 3.7/4.0`; VMock's own rendering shows
 point is the whole of her Presentation gap (29 vs our 30). Reproducing a parser
 defect is not the same as reproducing a rule, so it stays unreplicated.
 
+### Three reason-level differences remain — accepted
+Reviewed and accepted as-is: closing any of them would mean guessing at a rule
+that has never been read off the product, which is the one thing this project
+does not do.
 ### Three reason-level differences remain
 - **Masters_1's filler count for "The"** reads 8 here, 5 on VMock. Every other
   item on that panel matches exactly, `That 1` and `Have 1` and all five

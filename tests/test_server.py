@@ -19,7 +19,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from vmock_clone import report as report_mod
 from vmock_clone.parser import UnreadablePDF, parse_pdf
-from vmock_clone.scoring import load_benchmark, score_document
+from vmock_clone.scoring import (
+    BENCHMARK_PUBLIC_KEYS,
+    _public_benchmark,
+    load_benchmark,
+    score_document,
+)
 from vmock_clone.server import resolve_port
 from vmock_clone.wsgiapp import MAX_UPLOAD, ScoreApp, parse_multipart
 
@@ -222,29 +227,33 @@ class TestKeepsNothing(unittest.TestCase):
         self.assertEqual(rep.filename, "x.pdf")
 
     def test_benchmark_file_fields_are_whitelisted(self):
-        """A cohort JSON is built from real resumes; only score data may ship."""
-        root = os.path.join(ROOT, "benchmarks")
-        os.makedirs(root, exist_ok=True)
-        path = os.path.join(root, "_unittest_probe.json")
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump({
-                "label": "probe", "n": 5, "mean": 70, "stdev": 9,
-                "source_folder": "/home/deploy/private_resumes",
-                "skipped": [["Jane_Doe_Resume.pdf", "boom"]],
-            }, fh)
-        try:
-            from vmock_clone.core import Config
-            bm = load_benchmark(Config.load(), "_unittest_probe")
-            self.assertEqual(bm["label"], "probe")
-            self.assertNotIn("source_folder", bm)
-            self.assertNotIn("skipped", bm)
-        finally:
-            try:
-                os.remove(path)
-            except OSError:
-                # Some mounts forbid unlink (the Cowork device bridge does).
-                # The probe file is inert; leaving it must not fail the test.
-                pass
+        """A cohort JSON is built from real people's resumes, so only score
+        data may reach the client. Tested against the whitelist directly: an
+        earlier version wrote a probe file into benchmarks/ and left it behind
+        when unlink failed, which then got committed."""
+        hostile = {
+            "label": "probe", "n": 5, "mean": 70, "stdev": 9,
+            "source_folder": "/home/deploy/private_resumes",
+            "skipped": [["Jane_Doe_Resume.pdf", "boom"]],
+        }
+        public = _public_benchmark("probe", hostile)
+        self.assertEqual(public["label"], "probe")
+        self.assertEqual(public["n"], 5)
+        self.assertNotIn("source_folder", public)
+        self.assertNotIn("skipped", public)
+
+    def test_benchmark_writer_records_no_names_or_paths(self):
+        """Belt and braces: the fields must not be written in the first place."""
+        with open(os.path.join(ROOT, "vmock_clone", "benchmark.py"), encoding="utf-8") as fh:
+            source = fh.read()
+        self.assertNotIn('"source_folder"', source)
+        self.assertNotIn('"skipped": skipped', source)
+
+    def test_default_benchmark_ships_only_score_data(self):
+        from vmock_clone.core import Config
+
+        bm = load_benchmark(Config.load())
+        self.assertLessEqual(set(bm) - {"name"}, set(BENCHMARK_PUBLIC_KEYS))
 
     def test_server_error_detail_is_not_returned_to_the_client(self):
         app = ScoreApp()
