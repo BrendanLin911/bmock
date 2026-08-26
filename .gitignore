@@ -1,0 +1,12 @@
+# Real resumes used for calibration. These are personal documents containing
+# phone numbers and email addresses -- one of them belongs to a third party --
+# so they stay out of the repository. The engine reads them from here locally;
+# tests skip cleanly when they are absent.
+samples/real/
+
+# Generated reports
+out/
+*.pyc
+__pycache__/
+.DS_Store
+_probe.txt

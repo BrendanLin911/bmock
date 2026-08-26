@@ -1,0 +1,6 @@
+# Runtime
+pdfplumber>=0.10      # PDF text extraction with per-word geometry
+PyYAML>=6.0           # rules.yaml
+
+# Samples / tests only
+reportlab>=4.0        # generates the example resumes in samples/

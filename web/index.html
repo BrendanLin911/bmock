@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VMock Clone — Resume Scorer</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><i></i> Resume Scorer</div>
+  <span class="badge">rule-based · no LLM</span>
+  <span class="fname" id="fname" hidden></span>
+  <div class="spacer"></div>
+  <div class="ctl">
+    <label><input type="checkbox" id="quirks" checked> VMock quirks</label>
+    <span class="badge" id="status">ready</span>
+    <button class="btn" id="again" hidden>New resume</button>
+  </div>
+</div>
+
+<div class="uploader" id="uploader">
+  <h2>Score a resume the way VMock does</h2>
+  <p class="lede">Impact 40 · Presentation 30 · Competencies 30 — every point traceable to a rule.</p>
+  <div id="drop">
+    <strong>Drop a resume PDF here</strong>
+    <span>or click to choose a file — nothing leaves this machine</span>
+    <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+  </div>
+  <div class="controls">
+    <span>Red 0–32 · Yellow 33–85 · Green 86–100</span>
+  </div>
+</div>
+
+<div id="report"></div>
+
+<script src="/app.js"></script>
+<script>
+(function () {
+  var drop = document.getElementById("drop");
+  var input = document.getElementById("file");
+  var status = document.getElementById("status");
+  var report = document.getElementById("report");
+  var uploader = document.getElementById("uploader");
+  var fname = document.getElementById("fname");
+  var again = document.getElementById("again");
+
+  function setStatus(t, bad) {
+    status.textContent = t;
+    status.style.color = bad ? "var(--red)" : "";
+    status.style.borderColor = bad ? "var(--red)" : "";
+  }
+
+  function reset() {
+    report.innerHTML = "";
+    uploader.hidden = false;
+    fname.hidden = true;
+    again.hidden = true;
+    setStatus("ready");
+  }
+  again.addEventListener("click", reset);
+
+  function send(file) {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name)) { setStatus("PDF files only", true); return; }
+    drop.classList.add("busy");
+    setStatus("scoring …");
+    var fd = new FormData();
+    fd.append("file", file, file.name);
+    fd.append("quirks", document.getElementById("quirks").checked ? "1" : "0");
+    fetch("/api/score", { method: "POST", body: fd })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        drop.classList.remove("busy");
+        if (!res.ok || res.j.error) { setStatus(res.j.error || "failed", true); return; }
+        setStatus(res.j.overall + " / 100");
+        fname.textContent = res.j.filename;
+        fname.hidden = false;
+        again.hidden = false;
+        uploader.hidden = true;
+        window.VMockReport.render(res.j, report);
+        window.scrollTo(0, 0);
+      })
+      .catch(function (e) {
+        drop.classList.remove("busy");
+        setStatus(String(e), true);
+      });
+  }
+
+  drop.addEventListener("click", function () { input.click(); });
+  input.addEventListener("change", function () { send(input.files[0]); });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    e.preventDefault();
+    send(e.dataTransfer.files && e.dataTransfer.files[0]);
+  });
+})();
+</script>
+</body>
+</html>
