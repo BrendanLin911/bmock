@@ -245,7 +245,14 @@ impact:
     # Community Insights panel names DEVELOPED and ANALYSED as the community's
     # most frequently used action verbs, which is what this list is.
     common_verbs_only: true
-    common_verbs: [analyze, analyse, provide, develop, support]
+    # OBSERVED (Ziqi, CMU Resumes, 2026-08-26): VMock flagged "Built 3"
+    # alongside "Support/Supported 4", which adds `build` to this list.
+    #
+    # CAVEAT: this is an allow-list of verbs VMock has actually been SEEN to
+    # flag, so Overuse can only ever fire on these five. That is an artefact of
+    # having three reports, not a model -- every new report is likely to add to
+    # it. If a resume repeats some other verb and we stay silent, this is why.
+    common_verbs: [analyze, analyse, provide, develop, support, build]
     lemma_grouped: true
     # OBSERVED: VMock flagged "Analyzed" and "Provided/Providing" -- both from
     # experience bullets -- while "Physics" and "Analysis", which appear far more
