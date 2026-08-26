@@ -29,5 +29,11 @@ max_requests_jitter = 50
 # Import the app before forking so the wordlist and rules parse happen once.
 preload_app = True
 
+# gunicorn opens a control socket at $HOME/.gunicorn. In the container HOME is
+# "/", which the non-root user cannot write, so every start logged
+#   [ERROR] Control server error: [Errno 13] Permission denied: '/.gunicorn'
+# It is only used by `gunicorn ctl`, which nothing here does.
+control_socket_disable = True
+
 accesslog = "-" if os.environ.get("VMOCK_VERBOSE") else None
 errorlog = "-"
