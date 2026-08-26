@@ -166,7 +166,13 @@ def classify(token: str) -> str:
     BFCL, CNMAT, Audealize, SocialFX, DAFx, Pydantic, SonAura, Qwen-7B-Chat --
     all capitalised, all free).
     """
-    return "yellow" if any(c.isupper() for c in token) else "red"
+    if any(c.isupper() for c in token):
+        return "yellow"
+    # Every red word VMock actually reported was long (rebasing, webhook,
+    # idempotency). Short lowercase fragments are almost always PDF extraction
+    # artifacts -- a Times-Roman ligature on one resume produced a phantom
+    # "vfi" that VMock never saw -- so they are not treated as misspellings.
+    return "red" if len(token.strip("-'")) >= 4 else "yellow"
 
 
 def check_with_context(

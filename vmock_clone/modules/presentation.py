@@ -74,17 +74,29 @@ def _date_style(raw: str) -> str:
 # ---------------------------------------------------------------------------
 # OVERALL FORMAT — VMock's own 11 named checks
 # ---------------------------------------------------------------------------
-# Read directly off the real UI (CMU Masters - Technical, 2026-08-26). VMock
-# presents Overall Format as a pass/fail checklist, not a graded score:
+# Read directly off the real UI. VMock presents Overall Format as a pass/fail
+# checklist, not a graded score.
 #
+# CMU Masters - Technical Resumes (11 checks, 2026-08-26):
 #   FAILING   Bullet Alignment · Bullet Check · Bullet Count · Date Formatting
 #   PASSING   Font Size Check · References · Page Margins ·
-#             Objective/Summary Length · Section Styling · Photo Check ·
+#             Objective/Summary Length · Section Styling · Image Check ·
 #             Section Spacing
 #
-# Rule text was read verbatim for the four that failed. For the seven that
-# passed, only the NAME was observed -- the threshold behind each is unknown,
-# and is marked below. Nothing here is a guessed rule dressed up as a real one.
+# CMU Resumes (9 checks, read off the 77 report):
+#   FAILING   Bullet Check
+#   PASSING   Bullet Alignment · Date Formatting · Font Size Check ·
+#             References · Page Margins · Section Styling · Image Check ·
+#             Section Spacing
+#
+# The 9-check list is complete as read, so the two checks the CMU Resumes
+# benchmark drops are Bullet Count and Objective/Summary Length. That is
+# arithmetic on an observed list, not an inference about behaviour.
+#
+# Rule text was read verbatim for every check seen failing, plus Section
+# Styling. For the rest only the NAME was observed -- the threshold behind each
+# is unknown and is marked below. Nothing here is a guessed rule dressed up as
+# a real one.
 
 
 class Check:
@@ -213,16 +225,86 @@ def _chk_objective_length(doc, st, cfg):
                  "", f"{words} words" if words else "", observed_rule=False)
 
 
+SECTION_STYLING_RULE = ("Bold, no Italics, Consistent in Title case/Caps, "
+                       "Consistent in alignment")
+
+
+def _heading_case(text: str) -> str:
+    """caps | title | other -- the two case styles the rule text names."""
+    words = [w for w in re.split(r"[^A-Za-z&/]+", text) if w]
+    letters = [c for c in text if c.isalpha()]
+    if not letters or not words:
+        return "other"
+    if all(c.isupper() for c in letters):
+        return "caps"
+    # Title case tolerates lowercase joiners ("Skills and Interests"), which is
+    # how the style is conventionally written.
+    minor = {"and", "of", "in", "the", "a", "an", "for", "to", "or", "&"}
+    if all(w[0].isupper() or w.lower() in minor for w in words):
+        return "title"
+    return "other"
+
+
+def _heading_alignment(line: Line, page) -> str:
+    """left | center | right, measured against the page's own content box."""
+    if page is None:
+        return "left"
+    left_gap = line.x0 - page.left_margin
+    right_gap = (page.width - page.right_margin) - line.x1
+    if left_gap <= 6:
+        return "left"
+    if right_gap <= 6 and left_gap > 6:
+        return "right"
+    if abs(left_gap - right_gap) <= max(12.0, 0.06 * (right_gap + left_gap)):
+        return "center"
+    return "indented"
+
+
 def _chk_section_styling(doc, st, cfg):
-    """Name observed. Rule NOT observed -- deliberately not implemented rather
-    than invented. Always reported as passing so the checklist is complete."""
-    return Check("section_styling", "Section Styling", True, "", "", observed_rule=False)
+    """OBSERVED rule: "Bold, no Italics, Consistent in Title case/Caps,
+    Consistent in alignment"."""
+    heads = [s_ for s_ in st.sections if s_.heading_line is not None]
+    if not heads:
+        return Check("section_styling", "Section Styling", True,
+                     SECTION_STYLING_RULE, "")
+
+    pages = {p.number: p for p in doc.pages}
+    why = []
+
+    not_bold = [s_.raw_heading for s_ in heads
+                if s_.heading_line.bold_ratio < 0.5]
+    if not_bold:
+        why.append("not bold: " + ", ".join(not_bold[:4]))
+
+    italic = [s_.raw_heading for s_ in heads
+              if any(w.italic for w in s_.heading_line.words)]
+    if italic:
+        why.append("italicised: " + ", ".join(italic[:4]))
+
+    cases = {}
+    for s_ in heads:
+        cases.setdefault(_heading_case(s_.raw_heading), []).append(s_.raw_heading)
+    if len(cases) > 1:
+        why.append("mixed case styles: " +
+                   "; ".join(f"{k} ({', '.join(v[:2])})" for k, v in cases.items()))
+
+    aligns = {}
+    for s_ in heads:
+        a = _heading_alignment(s_.heading_line, pages.get(s_.heading_line.page))
+        aligns.setdefault(a, []).append(s_.raw_heading)
+    if len(aligns) > 1:
+        why.append("mixed alignment: " +
+                   "; ".join(f"{k} ({', '.join(v[:2])})" for k, v in aligns.items()))
+
+    return Check("section_styling", "Section Styling", not why,
+                 SECTION_STYLING_RULE, "; ".join(why))
 
 
-def _chk_photo(doc, st, cfg):
-    """Name observed; threshold NOT observed."""
+def _chk_image(doc, st, cfg):
+    """Name observed ("Image Check", read off the 77 report); threshold NOT
+    observed."""
     n = sum(p.n_images for p in doc.pages)
-    return Check("photo_check", "Photo Check", n == 0, "",
+    return Check("image_check", "Image Check", n == 0, "",
                  f"{n} embedded image(s)" if n else "", observed_rule=False)
 
 
@@ -243,7 +325,7 @@ def _chk_section_spacing(doc, st, cfg):
 OVERALL_FORMAT_CHECKS = [
     _chk_bullet_alignment, _chk_bullet_check, _chk_bullet_count, _chk_date_formatting,
     _chk_font_size, _chk_references, _chk_page_margins, _chk_objective_length,
-    _chk_section_styling, _chk_photo, _chk_section_spacing,
+    _chk_section_styling, _chk_image, _chk_section_spacing,
 ]
 
 
@@ -474,8 +556,17 @@ def _section_specific(doc: Document, st: Structure, cfg: Config) -> SubScore:
         for entry in exp.entries:
             for line in entry.header_lines[:1]:
                 titles.append(line)
-    styles = {(round(l.size, 1), l.bold_ratio >= 0.5,
-               any(w.italic for w in l.words)) for l in titles}
+    # Style the TITLE TEXT, not the whole line. An entry header usually fuses a
+    # left-aligned title with a right-aligned date, so a whole-line bold ratio
+    # swings on how many words the date happens to have -- two identically
+    # styled entries would read as two different stylings. The first word of
+    # the line is the styling the reader actually sees.
+    styles = set()
+    for l in titles:
+        if not l.words:
+            continue
+        w0 = l.words[0]
+        styles.add((round(l.size, 1), w0.bold, w0.italic))
     exp_checks.append(Check(
         "job_title_styling", "Job Title Styling", len(styles) <= 1,
         "Consistent Styling",
@@ -560,6 +651,14 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         _section_specific(doc, st, cfg),
         _spell_check(doc, st, cfg),
     ]
+    if cfg.get("presentation.all_or_nothing", True):
+        # A sub-parameter is full marks or nothing: see the note in rules.yaml.
+        for sub in subs:
+            failed = any(f.severity == "error" and f.points_lost > 0
+                         for f in sub.all_findings)
+            sub.points = 0.0 if failed else sub.max_points
+            sub.status = "Needs Work!" if failed else "Good Job!"
+
     declared = sum(s.max_points for s in subs)
     total = sum(s.points for s in subs)
     if declared and abs(declared - mx) > 0.01:

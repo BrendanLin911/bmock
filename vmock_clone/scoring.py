@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import copy
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -184,6 +185,15 @@ def score_document(
     include_preview: bool = False,
 ) -> Report:
     cfg = cfg or Config.load()
+    # The benchmark selects which checks exist at all: "CMU Resumes" runs 9
+    # Overall Format checks and 5 Impact sub-parameters, "CMU Masters -
+    # Technical" runs 11 and 4. Copy before overriding so a caller's Config is
+    # not left pointing at someone else's benchmark.
+    if benchmark and cfg.get(f"benchmark_profiles.{benchmark}"):
+        cfg = copy.copy(cfg)
+        cfg.data = dict(cfg.data)
+        cfg.data["benchmark_profiles"] = dict(cfg.data.get("benchmark_profiles", {}))
+        cfg.data["benchmark_profiles"]["default"] = benchmark
     doc: Document = parse_pdf(path)
     st: Structure = build_structure(doc)
 

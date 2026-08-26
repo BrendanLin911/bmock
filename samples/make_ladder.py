@@ -63,9 +63,9 @@ class Sheet:
             self.c.drawRightString(W - self.m, self.y, right)
         self.nl(size + 3)
 
-    def sub(self, left, right=None, size=None):
+    def sub(self, left, right=None, size=None, italic=True):
         size = size or self.body
-        self.c.setFont("Helvetica-Oblique", size)
+        self.c.setFont("Helvetica-Oblique" if italic else "Helvetica", size)
         self.c.drawString(self.m, self.y, left)
         if right:
             self.c.setFont("Helvetica", size)
@@ -217,15 +217,15 @@ def tier4(path):
 
 # ---------------------------------------------------------------- tier 5
 def tier5(path):
-    s = Sheet(path, margin=48, body=9.8)
+    s = Sheet(path, margin=48, body=9.0)
     s.name("Dana Okonkwo", size=15)
     s.contact("dana.okonkwo@example.com | 617-555-0119 | Boston, MA | linkedin.com/in/danaokonkwo | github.com/danaok")
     s.heading("Education")
     s.entry("Massachusetts Institute of Technology", "Sep 2023 - Jun 2025")
-    s.sub("M.Eng. in Operations Research; GPA: 4.0/4.0")
+    s.sub("Master of Engineering in Operations Research; GPA: 4.0/4.0", italic=False)
     s.plain("Relevant Coursework: Optimization, Machine Learning, Statistical Inference, Databases, Econometrics")
     s.entry("Boston University", "Sep 2019 - May 2023")
-    s.sub("B.S. in Industrial Engineering, summa cum laude; GPA: 3.9/4.0")
+    s.sub("Bachelor of Science in Industrial Engineering, summa cum laude; GPA: 3.9/4.0", italic=False)
     s.heading("Experience")
     s.entry("Meridian Logistics", "Jun 2024 - Aug 2024")
     s.sub("Operations Research Intern", "Boston, MA")

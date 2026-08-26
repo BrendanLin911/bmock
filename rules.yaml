@@ -95,7 +95,18 @@ modules:
 #  alone would return "17 of the possible 18 remaining points".
 # -----------------------------------------------------------------------------
 presentation:
-  overall_format: 17
+  # DERIVED, and an exact unique fit across five real reports spanning two
+  # benchmarks: each Presentation sub-parameter is ALL-OR-NOTHING. Any failing
+  # check inside it zeroes the whole sub-parameter; otherwise it scores full.
+  #
+  # The decisive evidence: two resumes that are byte-identical except that one
+  # has 14/19 bullets ending in a period and the other 19/19 scored 14/30 and
+  # 30/30. A single failed check is worth 16 points.
+  #
+  # Solving the five observations for integer weights summing to 30 yields
+  # exactly one solution:
+  all_or_nothing: true
+  overall_format: 16
   # NOT OBSERVED: VMock never displays per-check point values, only pass/fail
   # chips and the module total. This cost-per-failed-check is fitted to the one
   # ground truth we have (Presentation 12/30 with 4 of 11 checks failing).
@@ -114,10 +125,10 @@ presentation:
     section_spacing:       4
     bullet_consistency:    4
     font_and_alignment:    3
-  number_of_pages:         4
-  essential_sections:      4
-  section_specific:        3   # contact block: name, phone, email, location, linkedin
-  spell_check:             2
+  number_of_pages:         1
+  essential_sections:      9
+  section_specific:        1   # contact block: name, phone, email, location, linkedin
+  spell_check:             3
 
   geometry:
     page_limit: 1              # 2 for health / research / education benchmarks
@@ -126,7 +137,9 @@ presentation:
     margin_max_in: 1.0
     body_font_min_pt: 9.5
     body_font_max_pt: 12.0
-    max_distinct_body_font_sizes: 2
+    # OBSERVED: a resume with 9pt and 10pt body text FAILED Font Size Check,
+    # while three resumes with a single body size all passed it.
+    max_distinct_body_font_sizes: 1
     date_right_align_tolerance_in: 0.35
     max_bullet_glyph_variants: 1
     # CMU's VMock template: "either all bullet points should end with a
@@ -159,12 +172,18 @@ impact:
   overuse:               8
   avoided_words:         8
 
-  # Extra-curriculars was observed on the "CMU Resumes" benchmark but is ABSENT
-  # on "CMU Masters - Technical". Its rule text has never been read, so it stays
-  # off; turning it on without the rule would be guessing.
+  # Extra-curriculars is OBSERVED on the "CMU Resumes" benchmark and ABSENT on
+  # "CMU Masters - Technical". Its panel text has never been read, but its
+  # WEIGHT is now pinned by arithmetic: Brendan's 77 and 93 resumes are clean on
+  # all four shared sub-parameters and still score Impact 34/40, and the only
+  # sub-parameter they cannot satisfy is this one. 40 - 34 = 6.
+  #
+  # Declared weights sum to 46 on this profile; Impact is 40, so the engine
+  # rescales by 40/46. That reproduces 34/40 exactly for a resume that is
+  # perfect on the other four and has no extra-curricular section.
   extracurriculars:
-    enabled: false
-    points: 0
+    enabled: true
+    points: 6
 
   bullets:
     # Calibrated against real VMock output, which told a resume whose bullets
@@ -193,8 +212,13 @@ impact:
     # Share of bullets that should carry a number. Real VMock rated a resume at
     # 10/15 quantified bullets as merely "On Track", so full credit has to sit
     # above that band, not below it.
-    quantified_bullet_target: 0.55
-    tools_named_target: 0.20          # share that should name a tool/method/skill
+    quantified_bullet_target: 0.60
+    tools_named_target: 0.15          # share that should name a tool/method/skill
+    # Split between the two signals. VMock's Specifics panel names BOTH -- it
+    # asks for "more quantification of the impact and scope of your work" and
+    # green-highlights named things (ERP, Distinction, 3.22/4.0, I-III) -- and
+    # an even split is what reproduces the observed module totals.
+    quantification_weight: 0.5
     passive_voice_penalty_per_bullet: 0.5
 
   overuse_rules:
@@ -202,6 +226,14 @@ impact:
     # "Analyzed 3" and "Provided/Providing 3". So the threshold fires AT 3
     # occurrences, and inflected forms are counted together as one item.
     flag_at_occurrences: 3
+    # OBSERVED flagged vocabulary. Every word VMock has been seen to flag, and
+    # nothing else. Words that cleared the 3-occurrence threshold on the same
+    # two reports and were NOT flagged: Applied (4), Lead/Leading (3),
+    # Engineered (3), benchmarking/benchmarks (3), model (7). VMock's own
+    # Community Insights panel names DEVELOPED and ANALYSED as the community's
+    # most frequently used action verbs, which is what this list is.
+    common_verbs_only: true
+    common_verbs: [analyze, analyse, provide, develop, support]
     lemma_grouped: true
     # OBSERVED: VMock flagged "Analyzed" and "Provided/Providing" -- both from
     # experience bullets -- while "Physics" and "Analysis", which appear far more
@@ -215,6 +247,10 @@ impact:
     require_verb_form: true
     # Both observed reports displayed exactly two chips.
     max_reported: 2
+    # Groups at which the sub-parameter is fully lost. Two flagged groups rated
+    # "On Track!" on both observed reports, which puts two groups above the
+    # 42% mark; 6 does that and reproduces both module totals.
+    full_loss_at_groups: 6.0
     # OBSERVED: Masters_1's degree is "Applied Data Science" and VMock never
     # flagged "Applied"; Education is excluded along with the list sections.
     skip_sections: [education, coursework, skills, interests, languages, certifications]
@@ -225,8 +261,12 @@ impact:
     # Every flagged occurrence sat inside the Personal Statement prose block,
     # so VMock scans the summary section. This clone used to skip it entirely.
     scan_all_sections: true
-    filler_weight: 0.5
-    pronoun_weight: 0.5
+    filler_weight: 0.6
+    pronoun_weight: 0.4
+    # Counts, not densities -- VMock reports counts and the two resumes that
+    # pin this scale differ far more in count than in rate.
+    filler_full_at: 16
+    pronoun_full_at: 8
     # Articles ARE counted: "The 5" and "That 1" were flagged directly.
     include_articles: true
 
@@ -244,13 +284,30 @@ competencies:
   # OBSERVED band values, derived from two reports:
   #   Yuxuan   30/30 = 5 x "Good Job!"                  -> Good Job = 6.0
   #   Masters_1 23/30 = 3 x "Good Job!" + 2 x "On Track!" -> On Track = 2.5
-  points_good_job:   6.0
-  points_on_track:   2.5
-  points_needs_work: 0.0
-  # How many bullets must exhibit the competency to reach "Good Job!".
-  # Calibrated: Masters_1's Teamwork showed 4 highlighted bullets and was
-  # still only "On Track!", so the bar is above 4.
-  bullets_for_good_job: 5
+  points_each: 6.0
+  # Continuous within a competency, quantised to this step.
+  rounding_step: 0.5
+  # Chip thresholds for display only -- they do not affect the score.
+  chip_good_job_at: 5.0
+  chip_on_track_at: 2.5
+  # Units of evidence needed for full credit.
+  #
+  # OBSERVED anchor: Masters_1 scored Competencies 23/30 with three "Good Job!"
+  # chips and two "On Track!" ones whose tooltips read "4 bullets highlighted"
+  # and "1 bullet highlighted". Three full 6.0s plus 4 and 1 is exactly 23, so
+  # points rise one-for-one with highlighted units up to 6. Against VMock's own
+  # counts the ramp reaches full credit at 6 units.
+  #
+  # This clone's detector is a lexicon, not VMock's ~10,000-skill database, and
+  # it recovers fewer units per resume than VMock does. 5 is the ramp length
+  # that makes OUR unit counts reproduce VMock's published module scores
+  # (23/30 on Masters_1 exactly, 29/30 on two of Brendan's, 29 vs 30 on
+  # Yuxuan's). It is a calibration of this detector, not a claim about VMock's.
+  units_for_full_credit: 5
+  # OBSERVED: the Teamwork bullets VMock highlighted on Masters_1 were the four
+  # WORK bullets, not the paraphrases of them inside the Personal Statement, so
+  # a summary block does not add units of its own.
+  skip_sections: [summary]
   list: [analytical, communication, leadership, teamwork, initiative]
 
 # -----------------------------------------------------------------------------
@@ -265,11 +322,12 @@ competencies:
 #                                          5 Impact sub-parameters
 #                                            (it has Extra-curriculars)
 #
-#  WHICH two checks are dropped in the 9-check variant was never observed, so
-#  that profile is marked incomplete rather than guessed at.
+#  The 9-check list was later read in full off the 77 report, so the two checks
+#  the smaller benchmark drops are known by subtraction: Bullet Count and
+#  Objective/Summary Length.
 # -----------------------------------------------------------------------------
 benchmark_profiles:
-  default: cmu_masters_technical
+  default: cmu_resumes
 
   cmu_masters_technical:
     label: "CMU Masters - Technical Resumes"
@@ -284,22 +342,31 @@ benchmark_profiles:
       - page_margins
       - objective_summary_length
       - section_styling
-      - photo_check
+      - image_check
       - section_spacing
     impact_subparameters: [action_oriented, specifics, overuse, avoided_words]
 
   cmu_resumes:
     label: "CMU Resumes"
-    observed: partial
-    # Only the count (9) and one member (Bullet Check, seen failing) are known.
-    # format_checks is deliberately left unset: naming 9 of the 11 would be a
-    # guess, and this project does not guess.
-    # Only 3 of the 9 are known by name, all seen failing on the 69 resume:
-    #   Bullet Check | Date Formatting | Font Size Check
-    # The remaining 6 were never expanded, so they are not named here.
-    format_checks: null
+    observed: complete
+    # All 9 members read off the real UI (77 report): Bullet Check failing,
+    # the other 8 listed as passing. The list being complete settles what the
+    # 9-check benchmark drops relative to the 11-check one -- Bullet Count and
+    # Objective/Summary Length -- by subtraction, not by guessing.
+    #
+    # This REPLACES an earlier inference (now refuted) that Bullet Alignment
+    # was one of the two dropped checks. It is present here.
+    format_checks:
+      - bullet_alignment
+      - bullet_check
+      - date_formatting
+      - font_size_check
+      - references
+      - page_margins
+      - section_styling
+      - image_check
+      - section_spacing
     expected_format_check_count: 9
-    known_format_checks: [bullet_check, date_formatting, font_size_check]
     degree_styling_rule: "No italics, not abbreviated"
     impact_subparameters:
       [action_oriented, specifics, overuse, avoided_words, extracurriculars]

@@ -112,10 +112,11 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
     in VMock and has been removed.
     """
     mx = float(cfg.get("modules.competencies", 30))
-    good_pts = float(cfg.get("competencies.points_good_job", 6.0))
-    track_pts = float(cfg.get("competencies.points_on_track", 2.5))
-    weak_pts = float(cfg.get("competencies.points_needs_work", 0.0))
-    good_at = int(cfg.get("competencies.bullets_for_good_job", 5))
+    good_pts = float(cfg.get("competencies.points_each", 6.0))
+    good_at = float(cfg.get("competencies.units_for_full_credit", 4))
+    step = float(cfg.get("competencies.rounding_step", 0.5))
+    good_chip = float(cfg.get("competencies.chip_good_job_at", 5.0))
+    track_chip = float(cfg.get("competencies.chip_on_track_at", 2.5))
     # OBSERVED: although the tooltip says "<Competency> bullets highlighted",
     # the Analytical highlights on the 93 resume cover the EDUCATION degree
     # lines and the entire SKILLS block as well as the bullets. Competencies
@@ -152,20 +153,20 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
 
         label = COMPETENCY_LABELS.get(comp, comp.title())
         noun = label.lower()
-        if len(hits) >= good_at:
-            pts, status = good_pts, "Good Job!"
+        # Continuous, quantised to `step`. The earlier three-band model was an
+        # over-reading of two reports: a third resume scored Competencies 29/30,
+        # which no combination of {6.0, 2.5, 0.0} over five competencies can
+        # produce. Fine-grained scoring reproduces 30, 29 and 23 alike.
+        raw = good_pts * min(1.0, len(hits) / good_at) if good_at else good_pts
+        pts = round(raw / step) * step
+        if pts >= good_chip:
+            status, sev = "Good Job!", "good"
             msg = f"You are doing a great job reflecting your {noun} skills!"
-            sev = "good"
-        elif hits:
-            pts, status = track_pts, "On Track!"
-            msg = (f"We recommend you to add more experiences which reflect "
-                   f"your {noun} skills well.")
-            sev = "warn"
         else:
-            pts, status = weak_pts, "Needs Work!"
+            status = "On Track!" if pts >= track_chip else "Needs Work!"
+            sev = "warn" if pts >= track_chip else "error"
             msg = (f"We recommend you to add more experiences which reflect "
                    f"your {noun} skills well.")
-            sev = "error"
 
         sub = SubScore(comp, f"{label} Skills", pts, good_pts)
         sub.status = status
@@ -177,7 +178,7 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         )
         sub.detail = {
             "bullets_highlighted": len(hits),
-            "threshold_good_job": good_at,
+            "units_for_full_credit": good_at,
             "examples": hits[:6],
             # VMock also shows "Experiences you can consider" chips drawn from
             # its ~10,000-skill database. Not reproducible from a lexicon and

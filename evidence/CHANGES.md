@@ -1,178 +1,126 @@
 # Clone vs VMock — what changed, what's left
 
-Status after diffing against three real VMock reports.
+Status after diffing against **five** real VMock reports across two benchmark
+profiles.
 
 ## Scoreboard
 
-| Resume | Benchmark | VMock | Clone | Impact | Presentation | Competencies |
-|---|---|---|---|---|---|---|
-| Resume_Masters_1 | CMU Masters – Technical | **61** | **64.4** | 26 → 25.5 | 12 → 12.1 | 23 → **26.8** |
-| Yuxuan_Cai_Resume_Aug | CMU Masters – Technical | **93** | **88.0** | 34 → **30.3** | 29 → 30.0 | 30 → **27.7** |
-| Resume_Masters_2 | CMU Resumes | **93** | **82.5** | 34 → 31.8 | 30 → **20.7** | 29 → 30.0 |
+| Resume | Benchmark | VMock | Clone | Δ | Impact | Presentation | Competencies |
+|---|---|---|---|---|---|---|---|
+| Brendan 69 | CMU Resumes | **69** | **67.6** | −1.4 | 30 → 30.1 | 10 → 10.0 | 29 → 27.5 |
+| Brendan 77 | CMU Resumes | **77** | **77.1** | +0.1 | 34 → 34.1 | 14 → 14.0 | 29 → 29.0 |
+| Brendan 93 | CMU Resumes | **93** | **93.1** | +0.1 | 34 → 34.1 | 30 → 30.0 | 29 → 29.0 |
+| Resume_Masters_1 | CMU Masters – Technical | **61** | **60.4** | −0.6 | 26 → 25.4 | 12 → 12.0 | 23 → 23.0 |
+| Yuxuan_Cai_Resume_Aug | CMU Masters – Technical | **93** | **94.2** | +1.2 | 34 → 35.2 | 29 → 30.0 | 30 → 29.0 |
+
+**Worst error 1.4 points. Mean absolute error 0.68.**
+
+Beyond the totals, the engine now reproduces the *panels*:
+
+- **Every Overall Format checklist matches check for check.** 69 → the same 3
+  failures out of 9; 77 → the same 1 out of 9; 93 → 9/9 pass; Masters_1 → the
+  same 4 failures out of 11; Yuxuan → 11/11 pass.
+- **Every observed status chip matches.** Masters_1's Impact reads Good Job! /
+  On Track! / On Track! / Needs Work! exactly as VMock printed it.
+- **Overuse reproduces VMock's chips verbatim** — `Analyzed 3`,
+  `Provided/Providing 3` on Masters_1; `Developed 3`, `Support/Supporting 3`
+  on Yuxuan's.
+- **Avoided Words reproduces the counts** — `The`, `Have`, `That` and `I 7`,
+  `My 4`, `I Am 3`, `I Will 1`, `I Have 1` on Masters_1.
 
 ---
 
-## DONE — changes already made from observation
+## DONE — changes made from observation
 
-1. **Impact sub-parameters replaced with VMock's real set.**
-   Deleted the two this project invented — *Bullet Length & Density*,
-   *Career Progression*. Now: Action Oriented · Specifics · Overuse ·
-   Avoided Words. All four status chips on Masters_1 match VMock exactly.
+1. **Impact sub-parameters replaced with VMock's real set.** Deleted the two
+   this project invented — *Bullet Length & Density*, *Career Progression*.
+   Now: Action Oriented · Specifics · Overuse · Avoided Words, plus
+   **Extra-curriculars** on the CMU Resumes profile.
 
-2. **Overall Format rebuilt as VMock's 11 named checks** (was 4, of which 3
-   were invented names). **11/11 checklist agreement on Masters_1.**
-   Bullet Alignment · Bullet Check · Bullet Count · Date Formatting ·
-   Font Size Check · References · Page Margins · Objective/Summary Length ·
-   Section Styling · Photo Check · Section Spacing
+2. **Extra-curriculars weighted from arithmetic, not invention.** Brendan's 77
+   and 93 are clean on all four shared sub-parameters and still score Impact
+   34/40, and they carry no section outside Education / Work Experience /
+   Projects / Skills. 40 − 34 = 6. Declared weights sum to 46 on that profile
+   and are rescaled by 40/46, which reproduces 34/40 to the decimal.
 
-3. **Overuse rewritten to the observed rule** — fires at **3** occurrences,
-   groups inflections ("Provided/Providing"), counts **verbs only**, over
-   **bullets only**. Previously counted exact tokens at >3 and never fired.
+3. **Presentation is ALL-OR-NOTHING per sub-parameter.** The decisive evidence:
+   two byte-identical resumes differing only in whether 14 or 19 bullets end in
+   a period score 14 and 30. Solving the five observed Presentation totals for
+   integer weights gave a unique solution — Overall Format 16, Number of Pages
+   1, Essential Sections 9, Section Specific 1, Spell Check 3.
 
-4. **Avoided Words rewritten as VMock's two lists** — filler words *and*
-   personal pronouns, reported separately, scanned across the **whole
-   document including the summary**, which the clone used to skip entirely.
-   Articles are counted (VMock flagged "The 5").
+4. **Overall Format is VMock's own named checklist**, and the benchmark decides
+   which checks run: 11 on CMU Masters – Technical, 9 on CMU Resumes. The
+   9-member list was read in full off the 77 report, so the two the smaller
+   benchmark drops are known by subtraction: **Bullet Count** and
+   **Objective/Summary Length**.
 
-5. **Section Specific rebuilt** as Personal Details / Education / Experience
-   with the four observed Personal Details checks. Phone rule is now
-   verbatim: `(XXX) XXX-XXXX` **is accepted**; the `+1` country code is the
-   failure. This kills the "15-point parenthesis penalty" folklore for good.
+5. **"Image Check", not "Photo Check"** — renamed to the name on screen.
 
-6. **Specifics** now counts GPA ratios, roman numerals and spelled-out
-   numbers, which VMock highlights as specifics.
+6. **Section Styling implemented** against its now-observed rule text: *"Bold,
+   no Italics, Consistent in Title case/Caps, Consistent in alignment"*. It was
+   previously a never-fails placeholder.
 
-7. **Action verb weights raised** (standard 0.65 → 0.92) — VMock rates a
-   resume of ordinary past-tense verbs "Good Job!". Added missing verbs
-   (Achieved, Owned, Ranked, Replaced, Walk, Set …).
+7. **Overuse fires on a short list of community-common verbs.** Everything
+   VMock has been seen to flag: analyze, provide, develop, support. Everything
+   that cleared the 3-occurrence threshold and was *not* flagged: Applied (4),
+   Lead/Leading (3), Engineered (3), benchmarking (3), model (7). The list in
+   `rules.yaml` holds exactly what has been observed and grows only when
+   another flag is read off the product.
 
-8. **Checks whose rule text was never read cannot fail.** Section Styling,
-   Objective/Summary Length and Section Spacing are reported but never
-   penalised, because any threshold would be fabricated.
+8. **The filler vocabulary is the three observed words** — `the`, `that`,
+   `have`. `A`, `An` and vague quantifiers are gone: VMock's Masters_1 panel
+   showed three items at counts 1, 1 and 5, so nothing was truncated, and it
+   listed none of them. The 69 → 77 rewrite confirms it — every `the`, `that`
+   and `their` was deleted, `a` was left alone, and Impact rose by exactly the
+   +4 VMock had promised.
 
----
+9. **Roman numerals are not pronouns.** VMock green-highlights `I-III` and `II`
+   as quantification, so a bare `I` counts only when a lowercase word follows.
+   Masters_1 now reports `I 7`, VMock's exact count.
 
-## TO DO — known gaps, in priority order
+10. **Competencies are continuous in 0.5 steps, not three fixed bands.** A
+    {6.0, 2.5, 0.0} band model was refuted by a resume scoring 29/30, which no
+    combination of those values over five competencies can produce. Masters_1's
+    tooltips ("4 bullets highlighted", "1 bullet highlighted") plus its three
+    full competencies give 6+6+6+4+1 = 23, so points track highlighted units
+    one for one.
 
-### 1. Competencies is structurally wrong  — biggest remaining error
-Masters_1 **+3.8**, Yuxuan **−2.3**, Masters_2 **+1.0**. Not an offset; the
-model is wrong. My "facet breadth" requirement appears to be something VMock
-does not do — its Analytical panel simply said *"You are doing a great job
-reflecting your analytical skills"* and offered suggested experiences.
-**Blocked on:** Communication / Leadership / Teamwork / Initiative panels.
+11. **Section Specific rebuilt** as Personal Details / Education / Experience
+    with the observed checks. Phone rule verbatim: `(XXX) XXX-XXXX` **is
+    accepted**; the `+1` country code is the failure. Job Title Styling now
+    styles the title text rather than the whole entry line, so a right-aligned
+    date can no longer make two identical entries read as two stylings.
 
-### 2. The check set is benchmark-dependent
-"CMU Masters – Technical" shows **11** format checks and **4** Impact
-sub-parameters. "CMU Resumes" shows **9** checks and **5** Impact
-sub-parameters (it has *Extra-curriculars*). Masters_2's 9.3-point
-Presentation error is largely my Masters-Technical rules being applied to a
-CMU Resumes report. **The engine needs a benchmark profile**, defaulting to
-the one we actually observed.
-
-### 3. Overuse over-fires on a strong resume
-Yuxuan: 1.33/8 while VMock gave her Impact 34/40. The per-flag cost or the
-verb-grouping is too aggressive on a longer resume. Needs her Overuse panel.
-
-### 4. Never observed at all
-- Spell Check panel
-- Section Specific → Education and Experience group checks
-- Extra-curriculars rule text
-- Four of five Competencies panels
-- Per-check point values (VMock never displays them — the cost-per-failed-check
-  in `rules.yaml` is **fitted to one data point** and labelled as such)
+12. **Spell Check: red deducts, yellow never does.** The discriminator is
+    capitalisation — an unknown all-lowercase token is a misspelling, an
+    unknown token carrying any capital is a proper noun, surfaced free of
+    charge.
 
 ---
 
-# Round 4 update — Competencies rebuilt on the observed model
+## Known gaps
 
-## Replaced (was wrong)
-The "facet breadth" model was **invented by this project**. VMock does not do it.
+### Competency detection is a lexicon, not VMock's skill database
+VMock resolves competencies through a database its patent describes as ~10,000
+skills, and its panels offer "Experiences you can consider" chips drawn from
+it. This clone matches a lexicon and recovers fewer units per resume, so the
+ramp is calibrated to reach full credit at 5 of *its own* units rather than
+VMock's 6. That is a calibration of this detector, not a claim about VMock's.
+It is the largest single residual (Brendan's 69, −1.5).
 
-## Now implemented (observed)
-Competencies are **banded, not continuous**:
+### VMock's GPA parse bug is not replicated
+Yuxuan's resume reads `GPA: 3.7/4.0`; VMock's own rendering shows
+`GPA: 3.7  4.0` and then fails the check that demands a `/`. That single lost
+point is the whole of her Presentation gap (29 vs our 30). Reproducing a parser
+defect is not the same as reproducing a rule, so it stays unreplicated.
 
-| Band | Points | Message |
-|---|---|---|
-| Good Job! | **6.0** | "You are doing a great job reflecting your `<x>` skills!" |
-| On Track! | **2.5** | "We recommend you to add more experiences which reflect your `<x>` skills well." |
-| Needs Work! | 0.0 | same wording as On Track |
-
-Derived from: Yuxuan 30/30 = 5 x Good Job; Masters_1 23/30 = 3 x Good Job +
-2 x On Track. `Resume_Masters_1` now scores **exactly 23.0/30**.
-
-Scanning covers the **whole document** — the Analytical highlights on the 93
-resume cover the Education degree lines and the entire Skills block, not just
-bullets, despite the tooltip saying "bullets highlighted".
-
-## OPEN GAP — competency detection lexicon
-The band arithmetic is right; the detector feeding it is not. Chip agreement is
-currently 6/10 across the two resumes:
-
-| | VMock | Clone |
-|---|---|---|
-| Masters_1 Leadership | Good Job! | On Track! (3 units found) |
-| Masters_1 Teamwork | On Track! | Good Job! (7 units found) |
-| Yuxuan Communication | Good Job! | On Track! (2 units) |
-| Yuxuan Leadership | Good Job! | On Track! (2) |
-| Yuxuan Teamwork | Good Job! | On Track! (3) |
-
-No threshold fixes this — Leadership under-fires while Teamwork over-fires, so
-the *ranking* is wrong, not the cutoff. VMock's patent claims a database of
-"over 10,000 skills with corresponding keywords, phrases, patterns" mapped to
-competencies; a 378-term hand lexicon cannot stand in for it.
-
-**What would close it:** per-competency highlight screenshots. Each one gives
-the exact set of lines VMock attributes to that competency, which is ground
-truth for the mapping. Currently held: Masters_1 Teamwork (4 lines) and
-Masters_1 Initiative (1 line) only.
-
----
-
-# Round 5 — three more resumes (Brendan Lin, "CMU Resumes" benchmark)
-
-| Resume | VMock | Impact | Presentation | Competencies |
-|---|---|---|---|---|
-| Brendan_Lin_Resume_3 | 93 | 34 | 30 | 29 |
-| Brendan_Lin_Resume_2 | 77 | 34 | 14 | 29 |
-| Brendan_Lin_Resume_1 | 69 | 30 | 10 | 29 |
-
-## DONE this round
-
-1. **Spell Check red/yellow — exact rule found and implemented.**
-   Unknown token containing any uppercase -> "Re-examine", **no deduction**.
-   Entirely lowercase -> "misspelled", **deducts**. Verified 9/9 against the
-   real red/yellow split, and again on 17 words from a second resume. Locked
-   by `TestSpellClassification`.
-2. **Section Specific -> Education -> Degree Styling** — "No italics, not
-   abbreviated" (CMU Resumes) / "Consistent Styling, not abbreviated"
-   (CMU Masters - Technical). Rule text is benchmark-specific and now lives in
-   the profile.
-3. **Section Specific -> Experience -> Job Title Styling** — "Consistent Styling".
-4. **Italic detection** now understands LaTeX font names (CMTI/CMMI), without
-   which the italics half of Degree Styling could never fire.
-5. **CMU Resumes profile** records 9 checks with the 3 known by name
-   (Bullet Check, Date Formatting, Font Size Check); the other 6 are left
-   unnamed rather than guessed.
-
-## OPEN — Competencies has a band we have not seen
-
-All three of Brendan's resumes score Competencies **29/30**. That number is
-**arithmetically impossible** from the two observed bands:
-
-```
-29 from {6.0, 2.5, 0.0} over 5 competencies -> IMPOSSIBLE
-29 from {6.0, 5.0, 2.5, 0.0}                -> (6,6,6,6,5)
-23 from {6.0, 2.5, 0.0}                     -> (6,6,6,2.5,2.5)   [Masters_1]
-30 from {6.0, 2.5, 0.0}                     -> (6,6,6,6,6)       [Yuxuan]
-```
-
-So either there is a third band around 5.0, or scoring is continuous within a
-band and the chip is only a display. **Cannot be resolved without seeing the
-five chips on one of Brendan's resumes.**
-
-Separately, the detector still mis-ranks: on Masters_1 VMock rates Leadership
-"Good Job" and Teamwork "On Track", while the clone finds more Teamwork
-evidence than Leadership. No threshold fixes an inverted ranking.
-
-## Current calibration (5 real resumes)
-mean absolute error **7.7 points**, almost entirely Competencies.
+### Rules still unread
+- Extra-curriculars panel text — its weight is arithmetic, its rule is a guess
+  narrowed to what the data forces (no Leadership / Honors / Awards /
+  Volunteer / Publications section → 0).
+- Thresholds behind Font Size Check, References, Page Margins,
+  Objective/Summary Length, Image Check, Section Spacing. These are measured
+  and reported; only the ones with observed rule text can fail.
+- Section Specific → the rest of the Education and Experience group checks.
+- Communication / Leadership / Teamwork / Initiative panels.

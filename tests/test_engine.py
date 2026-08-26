@@ -277,10 +277,7 @@ class TestQualityLadder(unittest.TestCase):
 
     def test_spans_the_range(self):
         self.assertLess(self.scores[0], 40)
-        # Ceiling is currently held down by the known competency-detection gap
-        # (see evidence/CHANGES.md): the band model is right, the skill->
-        # competency lexicon is not yet built from observed highlights.
-        self.assertGreater(self.scores[-1], 80)
+        self.assertGreater(self.scores[-1], 90)
         self.assertGreater(self.scores[-1] - self.scores[0], 45)
 
     def test_zones_progress(self):
@@ -349,33 +346,114 @@ class TestSpellClassification(unittest.TestCase):
             self.assertEqual(spell.classify(w), "yellow", w)
 
 
-class TestCompetencyBandModel(unittest.TestCase):
-    """The banded model is observed fact: Good Job = 6.0, On Track = 2.5.
-    Yuxuan 30/30 = five Good Job; Masters_1 23/30 = three Good Job + two On
-    Track. This locks the arithmetic even while detection is being calibrated."""
+class TestCompetencyModel(unittest.TestCase):
+    """Competencies are continuous in 0.5 steps, not three fixed bands.
 
-    def test_band_values(self):
+    A strict {6.0, 2.5, 0.0} band model was refuted by a third report: Brendan's
+    resumes score Competencies 29/30, and no combination of those three values
+    over five competencies sums to 29. What the reports DO pin is the ramp --
+    Masters_1 scored 23 with three full competencies plus tooltips reading
+    "4 bullets highlighted" and "1 bullet highlighted", i.e. 6+6+6+4+1."""
+
+    def test_scores_are_half_point_quantised(self):
         cfg = Config.load()
-        self.assertEqual(float(cfg.get("competencies.points_good_job")), 6.0)
-        self.assertEqual(float(cfg.get("competencies.points_on_track")), 2.5)
+        self.assertEqual(float(cfg.get("competencies.rounding_step")), 0.5)
+        self.assertEqual(float(cfg.get("competencies.points_each")), 6.0)
 
     def test_masters_1_competency_total(self):
         path = os.path.join(ROOT, "samples", "real", "Resume_Masters_1.pdf")
         if not os.path.exists(path):
             self.skipTest("reference resume not present")
-        rep = score_document(path)
+        rep = score_document(path, benchmark="cmu_masters_technical")
         comp = next(m for m in rep.modules if m.key == "competencies")
         self.assertAlmostEqual(comp.points, 23.0, places=1)
 
-    def test_every_competency_lands_on_a_band(self):
+    def test_every_competency_is_quantised_and_chipped(self):
         path = os.path.join(ROOT, "samples", "real", "Resume_Masters_1.pdf")
         if not os.path.exists(path):
             self.skipTest("reference resume not present")
-        rep = score_document(path)
+        rep = score_document(path, benchmark="cmu_masters_technical")
         comp = next(m for m in rep.modules if m.key == "competencies")
         for s in comp.subscores:
-            self.assertIn(round(s.points, 2), (6.0, 2.5, 0.0), s.label)
+            self.assertAlmostEqual(round(s.points * 2) / 2, s.points, places=6,
+                                   msg=s.label)
+            self.assertLessEqual(s.points, 6.0, s.label)
             self.assertIn(s.status, ("Good Job!", "On Track!", "Needs Work!"))
+
+
+REFERENCE_SCORES = [
+    # file, benchmark profile, VMock's published overall score
+    ("Brendan_Lin_Resume_69.pdf", "cmu_resumes", 69),
+    ("Brendan_Lin_Resume_77.pdf", "cmu_resumes", 77),
+    ("Brendan_Lin_Resume_93.pdf", "cmu_resumes", 93),
+    ("Resume_Masters_1.pdf", "cmu_masters_technical", 61),
+    ("Yuxuan_Cai_Resume_Aug.pdf", "cmu_masters_technical", 93),
+]
+
+
+class TestAgainstRealVMockScores(unittest.TestCase):
+    """Every resume whose real VMock score is known must land within 2 points.
+
+    These PDFs are gitignored (they carry personal contact details), so the
+    tests skip when they are absent."""
+
+    def _score(self, name, profile):
+        path = os.path.join(ROOT, "samples", "real", name)
+        if not os.path.exists(path):
+            self.skipTest("reference resume not present")
+        return score_document(path, benchmark=profile)
+
+    def test_within_two_points(self):
+        for name, profile, target in REFERENCE_SCORES:
+            with self.subTest(resume=name):
+                got = self._score(name, profile).overall
+                self.assertLessEqual(
+                    abs(got - target), 2.0,
+                    f"{name}: {got:.1f} vs VMock {target}")
+
+    def test_observed_module_scores(self):
+        """Impact / Presentation / Competencies as VMock published them."""
+        expected = {
+            "Brendan_Lin_Resume_69.pdf": (30, 10, 29),
+            "Brendan_Lin_Resume_77.pdf": (34, 14, 29),
+            "Brendan_Lin_Resume_93.pdf": (34, 30, 29),
+            "Resume_Masters_1.pdf": (26, 12, 23),
+            "Yuxuan_Cai_Resume_Aug.pdf": (34, 29, 30),
+        }
+        for name, profile, _ in REFERENCE_SCORES:
+            with self.subTest(resume=name):
+                rep = self._score(name, profile)
+                mods = {m.key: m.points for m in rep.modules}
+                imp, pre, com = expected[name]
+                self.assertLessEqual(abs(mods["impact"] - imp), 2.0, "impact")
+                self.assertLessEqual(abs(mods["presentation"] - pre), 2.0, "presentation")
+                self.assertLessEqual(abs(mods["competencies"] - com), 2.0, "competencies")
+
+    def test_observed_impact_chips(self):
+        """The four Impact status chips read off Masters_1's report."""
+        rep = self._score("Resume_Masters_1.pdf", "cmu_masters_technical")
+        chips = {s.key: s.status
+                 for s in next(m for m in rep.modules if m.key == "impact").subscores}
+        self.assertEqual(chips["action_oriented"], "Good Job!")
+        self.assertEqual(chips["specifics"], "On Track!")
+        self.assertEqual(chips["overuse"], "On Track!")
+        self.assertEqual(chips["avoided_words"], "Needs Work!")
+
+    def test_observed_overuse_words(self):
+        """VMock's own chips, verbatim: Masters_1 showed "Analyzed 3" and
+        "Provided/Providing 3"; Yuxuan's showed "Developed 3" and
+        "Support/Supporting 3". Nothing else cleared the threshold."""
+        for name, profile, want in (
+            ("Resume_Masters_1.pdf", "cmu_masters_technical",
+             [("Analyzed", 3), ("Provided/Providing", 3)]),
+            ("Yuxuan_Cai_Resume_Aug.pdf", "cmu_masters_technical",
+             [("Developed", 3), ("Support/Supporting", 3)]),
+        ):
+            with self.subTest(resume=name):
+                rep = self._score(name, profile)
+                imp = next(m for m in rep.modules if m.key == "impact")
+                over = next(s for s in imp.subscores if s.key == "overuse")
+                self.assertEqual([tuple(x) for x in over.detail["reported"]], want)
 
 
 if __name__ == "__main__":

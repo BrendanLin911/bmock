@@ -398,3 +398,131 @@ capitalised, all yellow, and cost nothing ("On Track!").
 
 So: unknown token + any uppercase letter -> treated as a proper noun, surfaced,
 not penalised. Unknown token + all lowercase -> counted as a misspelling.
+
+---
+
+# Round 6 — Brendan's 77 report, Presentation panels
+
+Three corrections, all read off the screen.
+
+## The check is called **Image Check**, not "Photo Check"
+Renamed throughout. Nothing else about it is known.
+
+## Section Styling — rule text finally read
+> "Bold, no Italics, Consistent in Title case/Caps, Consistent in alignment"
+
+Previously a never-fails placeholder. Now implemented against exactly that
+sentence: every section heading must be bold, none italicised, all sharing one
+case style (all-caps or Title Case) and one alignment.
+
+## Overall Format on the 77 — 1 fail / 8 pass, and the 9-check set is now complete
+
+| | |
+|---|---|
+| FAILING | Bullet Check |
+| PASSING | Bullet Alignment · Date Formatting · Font Size Check · References · Page Margins · Section Styling · Image Check · Section Spacing |
+
+**This refutes an earlier inference.** `rules.yaml` had recorded a guess that
+the two checks the "CMU Resumes" benchmark drops (relative to the 11 on "CMU
+Masters - Technical") were Bullet Alignment and Bullet Count. Bullet Alignment
+is plainly present. With all 9 members now read, the two dropped checks follow
+by subtraction: **Bullet Count** and **Objective/Summary Length**.
+
+## Spell Check on the 77 — On Track!, yellow only
+`Soniox` · `JSONL` · `DEFINER` · `Duffing` · `WebSockets` · `Supabase`
+Consistent with the capitalisation rule from Round 5: no reds, no deduction.
+
+---
+
+# Round 7 — solving Impact
+
+## Extra-curriculars is worth 6, and Brendan scores 0 on it
+
+Brendan's 77 and 93 are byte-identical apart from bullet punctuation and both
+score **Impact 34/40**. On every shared sub-parameter they are clean: all 14
+bullets open with an action verb, 9 of 14 carry a number, nothing clears the
+overuse threshold, and after the 69 → 77 rewrite not one filler word or pronoun
+remains. On the four-sub-parameter benchmark that is 40/40.
+
+The "CMU Resumes" benchmark has a **fifth** Impact sub-parameter, Extra-curriculars,
+and those resumes contain only Education, Work Experience, Projects and Skills.
+40 − 34 = **6**, which pins the weight without ever reading the panel.
+
+Declared Impact weights on that profile therefore sum to 46 and are rescaled by
+40/46. A resume perfect on the other four with no extra-curricular section
+scores exactly 34/40 — which the engine now reproduces to the decimal.
+
+## The filler-word vocabulary is narrower than assumed
+
+VMock's Avoided Words panel on Masters_1 listed exactly `That 1` · `Have 1` ·
+`The 5`. Three items at counts 1, 1 and 5 — so nothing was truncated away, and
+**`A`, `An` and `Multiple` are not on VMock's list** even though that resume
+contains 6, 3 and 1 of them.
+
+Independent confirmation: the 69 → 77 rewrite, made in response to VMock's own
+feedback, deleted every `the` (11), `that` (3) and `their` (1) and left `a`
+untouched (13 → 14). Impact rose by exactly the +4 that VMock's "Remove
+overused and filler words" step had promised.
+
+The counted vocabulary is now the three observed words. The invented list
+(`a / an / which / there / here / this / these / those / then / than`) is gone,
+and vague quantifiers are no longer counted.
+
+## Roman numerals are not pronouns
+
+VMock's Specifics panel green-highlights `I-III` and `II` as quantification.
+A bare capital `I` is therefore counted as a pronoun only when a lowercase word
+follows it. With that rule the engine reports `I 7` on Masters_1 — the exact
+count VMock displayed, down from 9.
+
+## Overuse fires on a short list of community-common verbs
+
+Everything VMock has been seen to flag: `analyzed`, `provided/providing`,
+`developed`, `support/supporting`. Everything that cleared the 3-occurrence
+threshold on the same two reports and was **not** flagged: `Applied` (4),
+`Lead/Leading` (3), `Engineered` (3), `benchmarking/benchmarks` (3),
+`model` (7). VMock's own Community Insights panel names DEVELOPED and ANALYSED
+as the community's most-used action verbs.
+
+So the rule is not "any repeated verb" and not even "any repeated non-strong
+verb" — it is a short list of common verbs. `rules.yaml` now carries exactly
+the observed list and grows only when another flag is read off the product.
+With it, both reports reproduce verbatim:
+
+    Masters_1   You have overused a few words :   Analyzed 3   Provided/Providing 3
+    Yuxuan      You have overused a few words :   Developed 3  Support/Supporting 3
+
+## Competencies: the ramp, and what this clone can and cannot do
+
+Masters_1 scored 23/30 with three "Good Job!" chips and two "On Track!" ones
+whose tooltips read **"4 bullets highlighted"** and **"1 bullet highlighted"**.
+6 + 6 + 6 + 4 + 1 = 23 — so points rise one-for-one with highlighted units and
+reach full credit at 6 units.
+
+VMock resolves those units through a ~10,000-skill database. This clone uses a
+lexicon and recovers fewer units per resume, so its ramp is calibrated to reach
+full credit at 5 of ITS OWN units. The Personal Statement is excluded: the four
+Teamwork bullets VMock highlighted on Masters_1 were the work bullets, not the
+paraphrases of them inside the statement.
+
+## Where the engine now stands against every known score
+
+| Resume | VMock | Clone | Impact | Presentation | Competencies |
+|---|---|---|---|---|---|
+| Brendan 69 | 69 | 67.6 | 30.1 / 30 | 10.0 / 10 | 27.5 / 29 |
+| Brendan 77 | 77 | 77.1 | 34.1 / 34 | 14.0 / 14 | 29.0 / 29 |
+| Brendan 93 | 93 | 93.1 | 34.1 / 34 | 30.0 / 30 | 29.0 / 29 |
+| Masters_1 | 61 | 60.4 | 25.4 / 26 | 12.0 / 12 | 23.0 / 23 |
+| Yuxuan | 93 | 94.2 | 35.2 / 34 | 30.0 / 29 | 29.0 / 30 |
+
+Worst error 1.4 points. Every Overall Format checklist matches the observed
+panel check for check, and every observed status chip matches.
+
+## STILL NOT OBSERVED
+- Extra-curriculars panel text (its weight is arithmetic, its rule is not)
+- Section Specific → Education / Experience checks beyond Degree Styling,
+  GPA Check, University Name, University Styling, Job Title Styling
+- Thresholds behind Font Size Check, References, Page Margins,
+  Objective/Summary Length, Image Check, Section Spacing
+- Communication / Leadership / Teamwork / Initiative panels
+- The remainder of VMock's common-verb list for Overuse

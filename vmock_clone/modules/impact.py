@@ -399,7 +399,8 @@ def _specifics(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
     t_share = sum(1 for f in fbs if f.tools) / len(fbs)
     q_component = min(1.0, q_share / q_target) if q_target else 1.0
     t_component = min(1.0, t_share / t_target) if t_target else 1.0
-    raw = 0.7 * q_component + 0.3 * t_component
+    q_weight = float(spec.get("quantification_weight", 0.7))
+    raw = q_weight * q_component + (1.0 - q_weight) * t_component
 
     n_passive = sum(1 for f in fbs if not f.active_voice)
     penalty = min(0.25, (n_passive / len(fbs)) * passive_pen)
@@ -410,7 +411,7 @@ def _specifics(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
         sub.findings.append(
             Finding("error" if q_share < 0.35 else "warn",
                     f"{len(unquantified)} of {len(fbs)} bullets contain no number.",
-                    mx * (1 - q_component) * 0.7,
+                    mx * (1 - q_component) * q_weight,
                     evidence=unquantified[0].text[:100],
                     line_index=unquantified[0].index,
                     fix="Add scale and frequency: how many, how often, how much, how much better.")
@@ -418,7 +419,7 @@ def _specifics(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
     if t_share < t_target:
         sub.findings.append(
             Finding("warn", "Few bullets name the tool, method or system you used.",
-                    mx * (1 - t_component) * 0.3,
+                    mx * (1 - t_component) * (1.0 - q_weight),
                     fix="Name the stack: “in Python and SQL”, “using regression analysis”, “in Salesforce”.")
         )
     if q_share >= q_target and t_share >= t_target:
@@ -467,6 +468,10 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
     exclude_strong = bool(r.get("exclude_distinctive_verbs", True))
     require_vf = bool(r.get("require_verb_form", True))
     max_shown = int(r.get("max_reported", 2))
+    common_only = bool(r.get("common_verbs_only", True))
+    common_verbs = {w.lower() for w in (r.get("common_verbs") or [])}
+    if common_only and not common_verbs:
+        common_only = False
 
     skip = set(r.get("skip_sections", []) or [])
     # OBSERVED: on Masters_1 VMock counted "Provided/Providing 3", but only two
@@ -501,8 +506,23 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
                 # overuse targets common verbs, not distinctive ones.
                 if exclude_strong and (lem & STRONG_VERBS):
                     continue
+                # OBSERVED, and narrower than "not a strong verb": across the
+                # two reports the ONLY words VMock flagged were analyzed,
+                # provided/providing, developed and support/supporting, while
+                # Applied (4x), Lead/Leading (3x), Engineered (3x),
+                # benchmarking/benchmarks (3x) and model (7x) all cleared the
+                # threshold and were left alone. VMock's own Community Insights
+                # names DEVELOPED and ANALYSED as the community's most-used
+                # action verbs, so Overuse fires on a short list of
+                # community-common verbs rather than on any repeated verb.
+                # This list holds exactly what has been seen flagged; it grows
+                # only when another flag is read off the product.
+                if common_only and not (lem & common_verbs):
+                    continue
             key = _overuse_key(low) if lemma_grouped else low
-            groups[key][tok if tok.istitle() or tok.islower() else tok.capitalize()] += 1
+            # VMock renders each surface form Title-cased and collapses case,
+            # e.g. "Provided/Providing 3", "Support/Supporting 3".
+            groups[key][tok.capitalize()] += 1
 
     flagged = []
     for key, forms in groups.items():
@@ -518,9 +538,9 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
             if infl * 2 < total:
                 continue
         if total >= threshold:
-            label = "/".join(
-                f for f, _ in sorted(forms.items(), key=lambda kv: (-kv[1], kv[0]))
-            )
+            # OBSERVED ordering: "Provided/Providing", "Support/Supporting" --
+            # alphabetical within the group, not by frequency.
+            label = "/".join(sorted(forms))
             flagged.append((label, total))
     flagged.sort(key=lambda kv: (-kv[1], kv[0]))
 
@@ -535,14 +555,17 @@ def _overuse(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> SubScore:
     # rated "On Track!", so each flagged group costs a modest share.
     shown = flagged[:max_shown]
     # Calibrated: two flagged words rated "On Track!" on both observed reports.
-    sub.points = clamp(mx - mx * min(1.0, len(shown) / 4.5), 0, mx)
-    for label, n in shown:
-        sub.findings.append(
-            Finding("warn", f"You have overused a word: {label} ({n})",
-                    mx * 0.15,
-                    fix="Revise the resume content to minimize the use of overused "
-                        "words as much as possible.")
-        )
+    full_at = float(r.get("full_loss_at_groups", 4.5))
+    sub.points = clamp(mx - mx * min(1.0, len(shown) / full_at), 0, mx)
+    # OBSERVED panel: one heading, then a chip per word. VMock's wording,
+    # spacing and all.
+    sub.findings.append(
+        Finding("warn", "You have overused a few words :",
+                mx - sub.points,
+                evidence="  ".join(f"{label} {n}" for label, n in shown),
+                fix="Revise the resume content to minimize the use of overused "
+                    "words as much as possible.")
+    )
     sub.detail = {"threshold": threshold, "flagged": flagged[:20],
                   "reported": shown}
     return sub
@@ -591,11 +614,25 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
             n = low.count(f" {phrase} ")
             if n:
                 pronouns[phrase.title()] += n
-        for tok in toks:
+        for i, tok in enumerate(toks):
             t = tok.lower()
             if t in PRONOUNS:
+                # OBSERVED: VMock's Specifics panel green-highlights "I-III" and
+                # "II" as quantification, so a bare capital I in a course code
+                # ("Linear Algebra I-II", "Computer Science I.") is a roman
+                # numeral to VMock, not a pronoun. Only count "I" when a
+                # lowercase word follows it, which is how it reads in prose
+                # ("I am", "I led").
+                if tok == "I":
+                    nxt = toks[i + 1] if i + 1 < len(toks) else ""
+                    if not (nxt[:1].islower()):
+                        continue
                 pronouns[tok.title() if len(tok) > 1 else tok.upper()] += 1
-            elif t in FILLER_ADVERBS or t in BUZZWORDS or t in VAGUE_QUANTIFIERS:
+            elif t in FILLER_ADVERBS or t in BUZZWORDS:
+                # VAGUE_QUANTIFIERS is deliberately NOT counted. VMock's filler
+                # list on Masters_1 showed three items at counts 1, 1 and 5 --
+                # so nothing was truncated away -- and "Multiple", which occurs
+                # once in that resume, was not among them.
                 filler[tok.title()] += 1
             elif include_articles and t in ARTICLES_AND_CONNECTORS:
                 filler[tok.title()] += 1
@@ -605,10 +642,17 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
                 filler[phrase.title()] += n
 
     total_words = max(1, total_words)
-    fill_rate = sum(filler.values()) / total_words
-    pron_rate = sum(pronouns.values()) / total_words
-    lost = mx * min(1.0, w_fill * min(1.0, fill_rate / 0.09)
-                        + w_pron * min(1.0, pron_rate / 0.02))
+    n_fill = sum(filler.values())
+    n_pron = sum(pronouns.values())
+    fill_rate = n_fill / total_words
+    pron_rate = n_pron / total_words
+    # VMock reports these as raw COUNTS ("The 5", "I 7"), never as a density,
+    # and the two resumes that pin the scale differ far more in count than in
+    # rate. The ramp is therefore over counts.
+    f_full = float(r.get("filler_full_at", 16))
+    p_full = float(r.get("pronoun_full_at", 8))
+    lost = mx * min(1.0, w_fill * min(1.0, n_fill / f_full)
+                        + w_pron * min(1.0, n_pron / p_full))
     sub.points = clamp(mx - lost, 0, mx)
 
     if filler:
@@ -771,20 +815,96 @@ def _career_progression(st: Structure, cfg: Config) -> SubScore:
     return sub
 
 
+EXTRACURRICULAR_SECTIONS = ("leadership", "awards", "volunteer", "publications")
+
+
+def _extracurriculars(st: Structure, cfg: Config) -> SubScore:
+    """OBSERVED to exist on the "CMU Resumes" benchmark and to be absent on
+    "CMU Masters - Technical". Its panel text has never been read, so the rule
+    below is the narrowest one the arithmetic supports, not a guess at VMock's
+    internals.
+
+    What the arithmetic says. Brendan's 77 and 93 resumes score Impact 34/40.
+    Every other Impact sub-parameter on them is clean -- every bullet opens with
+    an action verb, 64% carry a number, nothing is overused, and after the 69 ->
+    77 rewrite no filler word or pronoun remains. On the four-sub-parameter
+    benchmark that profile scores 40/40, so the missing 6 points belong to the
+    one sub-parameter those resumes cannot satisfy: they have no section outside
+    Education, Work Experience, Projects and Skills.
+
+    The section names come from VMock's own Essential Sections panel, which
+    lists Leadership, Honors, Awards and Conferences/Publications as the
+    optional groups a resume may add.
+    """
+    mx = float(cfg.get("impact.extracurriculars.points", 6))
+    sub = SubScore("extracurriculars", "Extra-curriculars", 0.0, mx)
+    present = [s_ for s_ in st.sections
+               if s_.canonical in EXTRACURRICULAR_SECTIONS]
+    if present:
+        sub.points = mx
+        sub.status = "Good Job!"
+        sub.findings.append(
+            Finding("good", "You have included extra-curricular involvement.",
+                    0.0, evidence=", ".join(s_.raw_heading for s_ in present)))
+    else:
+        sub.points = 0.0
+        sub.status = "Needs Work!"
+        sub.findings.append(
+            Finding("error",
+                    "Your resume shows no extra-curricular involvement.", mx,
+                    fix="Add a Leadership, Activities, Honors, Awards or "
+                        "Volunteer section describing involvement outside your "
+                        "coursework and jobs."))
+    sub.detail = {"sections_found": [s_.raw_heading for s_ in present]}
+    return sub
+
+
+_IMPACT_BUILDERS = {
+    "action_oriented": lambda st, fbs, cfg: _action_oriented(fbs, cfg),
+    "specifics": lambda st, fbs, cfg: _specifics(fbs, cfg),
+    "overuse": lambda st, fbs, cfg: _overuse(st, fbs, cfg),
+    "avoided_words": lambda st, fbs, cfg: _avoided_words(st, fbs, cfg),
+    "extracurriculars": lambda st, fbs, cfg: _extracurriculars(st, cfg),
+}
+
+_DEFAULT_IMPACT_SUBS = ["action_oriented", "specifics", "overuse", "avoided_words"]
+
+
 # ---------------------------------------------------------------------------
 def score(doc: Document, st: Structure, cfg: Config) -> Tuple[ModuleScore, List[BulletFeedback]]:
     mx = float(cfg.get("modules.impact", 40))
     fbs = analyse_bullets(st, cfg)
-    # VMock's observed Impact sub-parameters, in its own order and naming.
-    subs = [
-        _action_oriented(fbs, cfg),
-        _specifics(fbs, cfg),
-        _overuse(st, fbs, cfg),
-        _avoided_words(st, fbs, cfg),
-    ]
+    # OBSERVED: the sub-parameter set is benchmark-conditional. "CMU Masters -
+    # Technical Resumes" shows 4; "CMU Resumes" shows 5, the extra one being
+    # Extra-curriculars. Impact is 40 either way, so the shared four are
+    # rescaled to make room for it -- which is exactly what the renormalisation
+    # below does.
+    profile = cfg.get("benchmark_profiles.default", "cmu_masters_technical")
+    wanted = cfg.get(f"benchmark_profiles.{profile}.impact_subparameters") or _DEFAULT_IMPACT_SUBS
+    keys = [k for k in wanted if k in _IMPACT_BUILDERS] or _DEFAULT_IMPACT_SUBS
+    subs = [_IMPACT_BUILDERS[k](st, fbs, cfg) for k in keys]
+
     declared = sum(s.max_points for s in subs)
     total = sum(s.points for s in subs)
     if declared and abs(declared - mx) > 0.01:
-        total *= mx / declared
+        scale = mx / declared
+        total *= scale
+        for s_ in subs:
+            s_.points *= scale
+            s_.max_points *= scale
+
+    # VMock puts a status chip on every sub-parameter. The three-way vocabulary
+    # is its own -- "Good Job! / On Track! / Needs Work!" -- and the cut points
+    # are the ones the Competencies module pins: Good Job at 5.0 of 6.0 and On
+    # Track at 2.5 of 6.0, i.e. 83% and 42% of the sub-parameter's own maximum.
+    good_at = float(cfg.get("impact.chip_good_job_ratio", 5.0 / 6.0))
+    track_at = float(cfg.get("impact.chip_on_track_ratio", 2.5 / 6.0))
+    for s_ in subs:
+        if not s_.max_points:
+            continue
+        ratio = s_.points / s_.max_points
+        s_.status = ("Good Job!" if ratio >= good_at
+                     else "On Track!" if ratio >= track_at else "Needs Work!")
+
     mod = ModuleScore("impact", "Impact", clamp(total, 0, mx), mx, subs)
     return mod, fbs
