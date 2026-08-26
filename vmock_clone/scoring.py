@@ -139,13 +139,21 @@ def load_benchmark(cfg: Config, name: Optional[str] = None) -> Dict[str, Any]:
     return {"name": "general", "label": "General cohort", "mean": 62.0, "stdev": 14.0, "n": 0}
 
 
-PREVIEW_DPI = 110
+# 200 dpi renders a letter page at 1700px wide. The preview pane is at most
+# 860 CSS px, so on a 2x display that is 1720 device pixels -- i.e. 200 dpi is
+# the point where the page stops looking soft on a retina screen and below
+# which it always will. It costs about 170KB of base64 per page over 110 dpi;
+# palette quantisation was measured and saves under 2%, so this is simply the
+# price of a sharp preview.
+PREVIEW_DPI = int(os.environ.get("VMOCK_PREVIEW_DPI", "200"))
 # Rasterisation is the one step whose cost the uploader controls, so it gets
 # two ceilings: how many pages are drawn at all, and how many pixels any one
 # page may occupy. Without the pixel bound a legal 100-inch page renders to
 # 11000x11000 and takes gigabytes.
 MAX_PREVIEW_PAGES = int(os.environ.get("VMOCK_MAX_PREVIEW_PAGES", "3"))
-MAX_RASTER_PX = 4_000_000        # ~3.5x a letter page at 110 dpi
+# Room for a legal-size page at 200 dpi (1700x2800 = 4.8M) with headroom.
+# Anything larger is drawn at reduced dpi rather than refused.
+MAX_RASTER_PX = 12_000_000
 
 
 def build_preview(src, doc: Document, dpi: int = PREVIEW_DPI) -> Optional[Dict[str, Any]]:
