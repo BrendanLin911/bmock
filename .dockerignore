@@ -6,8 +6,14 @@
 !requirements-runtime.txt
 !gunicorn.conf.py
 !rules.yaml
-!vmock_clone/
-!web/
+# Directory and contents spelled out separately. "!vmock_clone/" alone is
+# sufficient under BuildKit -- "*" does not match across "/", so nested files
+# were never excluded -- but the explicit form survives builders that treat a
+# matched parent as pruning the whole subtree, and it costs nothing.
+!vmock_clone
+!vmock_clone/**
+!web
+!web/**
 
 # Strip build cruft back out of the re-admitted trees.
 **/__pycache__/
