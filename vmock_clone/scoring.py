@@ -112,48 +112,82 @@ class Report:
         }
 
 
+# A cohort file is built from a folder of real resumes, so it carries the
+# operator's own paths and the filenames of people whose PDFs failed to parse.
+# Only these keys are score data; everything else stays on the server.
+BENCHMARK_PUBLIC_KEYS = (
+    "label", "n", "mean", "stdev", "median", "min", "max", "module_means",
+)
+
+
+def _public_benchmark(name: str, raw: Dict[str, Any]) -> Dict[str, Any]:
+    return {"name": name, **{k: raw[k] for k in BENCHMARK_PUBLIC_KEYS if k in raw}}
+
+
 def load_benchmark(cfg: Config, name: Optional[str] = None) -> Dict[str, Any]:
     name = name or cfg.get("benchmark.default", "general")
     inline = cfg.get(f"benchmark.{name}")
     if isinstance(inline, dict):
-        return {"name": name, **inline}
+        return _public_benchmark(name, inline)
     root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "benchmarks")
     path = os.path.join(root, f"{name}.json")
     if os.path.exists(path):
         import json
 
         with open(path, encoding="utf-8") as f:
-            return {"name": name, **json.load(f)}
+            return _public_benchmark(name, json.load(f))
     return {"name": "general", "label": "General cohort", "mean": 62.0, "stdev": 14.0, "n": 0}
 
 
 PREVIEW_DPI = 110
+# Rasterisation is the one step whose cost the uploader controls, so it gets
+# two ceilings: how many pages are drawn at all, and how many pixels any one
+# page may occupy. Without the pixel bound a legal 100-inch page renders to
+# 11000x11000 and takes gigabytes.
+MAX_PREVIEW_PAGES = int(os.environ.get("VMOCK_MAX_PREVIEW_PAGES", "3"))
+MAX_RASTER_PX = 4_000_000        # ~3.5x a letter page at 110 dpi
 
 
-def build_preview(path: str, doc: Document, dpi: int = PREVIEW_DPI) -> Optional[Dict[str, Any]]:
+def build_preview(src, doc: Document, dpi: int = PREVIEW_DPI) -> Optional[Dict[str, Any]]:
     """Page rasters plus line geometry, so the UI can show the real resume.
 
     VMock puts your actual page on the left and pins its feedback to the line
     that earned it. Everything here is derived from the same parse the score
     comes from, so a pin can never drift from what was measured.
+
+    `src` is a path or a binary stream: the web app passes the upload straight
+    through so it never reaches disk.
     """
     try:
         import base64
         import io as _io
+        import math
 
         import pdfplumber
 
+        if hasattr(src, "seek"):
+            src.seek(0)
         pages = []
-        with pdfplumber.open(path) as pdf:
-            for i, page in enumerate(pdf.pages):
-                im = page.to_image(resolution=dpi)
+        with pdfplumber.open(src) as pdf:
+            total = len(pdf.pages)
+            for i, page in enumerate(pdf.pages[:MAX_PREVIEW_PAGES]):
+                w_pt, h_pt = float(page.width), float(page.height)
+                # Scale the resolution down rather than refusing to draw, so an
+                # unusually large page still previews, just at fewer dots.
+                page_dpi = dpi
+                if w_pt > 0 and h_pt > 0:
+                    px = (w_pt * dpi / 72.0) * (h_pt * dpi / 72.0)
+                    if px > MAX_RASTER_PX:
+                        page_dpi = max(20, int(72.0 * math.sqrt(MAX_RASTER_PX / (w_pt * h_pt))))
+                im = page.to_image(resolution=page_dpi)
                 buf = _io.BytesIO()
                 im.save(buf, format="PNG")
                 pages.append(
                     {
                         "index": i,
-                        "w_pt": round(float(page.width), 2),
-                        "h_pt": round(float(page.height), 2),
+                        "w_pt": round(w_pt, 2),
+                        "h_pt": round(h_pt, 2),
+                        "dpi": page_dpi,
                         "png": "data:image/png;base64,"
                         + base64.b64encode(buf.getvalue()).decode("ascii"),
                     }
@@ -162,6 +196,8 @@ def build_preview(path: str, doc: Document, dpi: int = PREVIEW_DPI) -> Optional[
         return None
     return {
         "dpi": dpi,
+        "pages_total": total,
+        "pages_rendered": len(pages),
         "pages": pages,
         "lines": [
             {
@@ -179,11 +215,17 @@ def build_preview(path: str, doc: Document, dpi: int = PREVIEW_DPI) -> Optional[
 
 
 def score_document(
-    path: str,
+    src,
     cfg: Optional[Config] = None,
     benchmark: Optional[str] = None,
     include_preview: bool = False,
+    display_name: Optional[str] = None,
 ) -> Report:
+    """Score a resume from a path or a binary stream.
+
+    The web app passes an in-memory stream and a display name, so an uploaded
+    PDF is never written to disk and no server path can reach the response.
+    """
     cfg = cfg or Config.load()
     # The benchmark selects which checks exist at all: "CMU Resumes" runs 9
     # Overall Format checks and 5 Impact sub-parameters, "CMU Masters -
@@ -194,18 +236,20 @@ def score_document(
         cfg.data = dict(cfg.data)
         cfg.data["benchmark_profiles"] = dict(cfg.data.get("benchmark_profiles", {}))
         cfg.data["benchmark_profiles"]["default"] = benchmark
-    doc: Document = parse_pdf(path)
+    is_path = isinstance(src, (str, bytes, os.PathLike))
+    doc: Document = parse_pdf(src)
     st: Structure = build_structure(doc)
 
+    shown = display_name or (os.path.basename(src) if is_path else "resume.pdf")
     rep = Report(
-        file=os.path.abspath(path),
-        filename=os.path.basename(path),
+        file=os.path.abspath(src) if is_path and not display_name else shown,
+        filename=shown,
         generated_at=datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         scored=True,
         overall=0.0,
         zone="red",
     )
-    rep.preview = build_preview(path, doc) if include_preview else None
+    rep.preview = build_preview(src, doc) if include_preview else None
     rep.meta = {
         "name": st.name,
         "pages": doc.n_pages,
@@ -220,7 +264,9 @@ def score_document(
         "two_column": doc.two_column,
         "body_font_pt": st.body_font_size,
         "parse_warnings": doc.parse_warnings,
-        "rules_file": cfg.path,
+        # Basename only: the absolute path is server state, and on a hosted
+        # deployment it would hand every visitor the install layout.
+        "rules_file": os.path.basename(cfg.path or "rules.yaml"),
         "quirks_enabled": bool(cfg.get("quirks.strict_vmock_quirks", True)),
         # The red / yellow / green cutoffs, so the UI can draw the zone band
         # against the same numbers the score was judged by.

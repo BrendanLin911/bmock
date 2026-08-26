@@ -1,0 +1,15 @@
+# What the hosted service needs. Deliberately NOT requirements.txt: that file
+# also carries reportlab, which only samples/make_samples.py uses and which has
+# no business in a production image.
+#
+# pdfplumber >=0.11 is load-bearing, not cosmetic: 0.10.x rasterised through
+# Wand, which needs a system ImageMagick install. 0.11 switched to pypdfium2,
+# whose wheel bundles libpdfium — that is what makes this image need zero apt
+# packages. Do not relax the floor.
+pdfplumber>=0.11
+PyYAML>=6.0
+gunicorn>=23.0
+
+# For a reproducible image, pin the full transitive set with hashes:
+#   pip-compile --generate-hashes requirements-runtime.txt -o requirements.lock
+# and swap the install line in the Dockerfile to --require-hashes.

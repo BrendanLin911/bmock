@@ -79,8 +79,16 @@ python3 run.py                           # local web app at http://127.0.0.1:842
 python3 -m vmock_clone resume.pdf         # CLI: terminal summary + out/…_report.html
 ```
 
-Nothing leaves the machine. The server binds `127.0.0.1`, parses in-process, and
-deletes the temp file.
+Run locally, nothing leaves the machine: the server binds `127.0.0.1` and the
+PDF is parsed from an in-memory stream — it is never written to disk, so there
+is no temp file to clean up or leak.
+
+That last part holds when it is hosted too, which is the point: the upload is
+scored in memory and dropped, and the response is the only copy. Upload again
+whenever you want fresh feedback, and use **Download report** to keep one — the
+saved file is a single self-contained HTML page that works offline. See
+[DEPLOY.md](DEPLOY.md) for hosting, and for what your *host's* logs still see,
+which is outside this codebase's control.
 
 ### Everything the CLI does
 

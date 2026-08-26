@@ -1,0 +1,24 @@
+# Deny everything, then re-admit only what the runtime image needs. A denylist
+# fails open: the next directory someone adds ships by default, and this repo
+# keeps real people's resumes on disk.
+*
+
+!requirements-runtime.txt
+!rules.yaml
+!vmock_clone/
+!web/
+
+# Strip build cruft back out of the re-admitted trees.
+**/__pycache__/
+**/*.py[cod]
+**/.DS_Store
+
+# Belt and braces. These carry real resumes (names, phone numbers, email
+# addresses, one of them a third party's) and must never enter a build
+# context even if the allow-list above is ever loosened.
+samples/
+out/
+evidence/
+benchmarks/
+tests/
+.git/

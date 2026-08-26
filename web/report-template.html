@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resume Score - {{FILENAME}}</title>
+<style>
+{{CSS}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><i></i> Resume Score</div>
+  <span class="badge">rule-based &middot; no LLM</span>
+  <span class="fname">{{FILENAME}}</span>
+  <div class="spacer"></div>
+  <span class="badge">saved copy &middot; works offline</span>
+</div>
+<div id="report"></div>
+<script>
+{{JS}}
+</script>
+<script>
+var __DATA__ = {{DATA}};
+window.VMockReport.render(__DATA__, document.getElementById("report"));
+</script>
+</body>
+</html>

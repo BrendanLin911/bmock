@@ -17,6 +17,15 @@ profiles.
 
 Beyond the totals, the engine now reproduces the *panels*:
 
+- **Spell Check reproduces its lists word for word** on both resumes where the
+  panel was read — the 69's red `rebasing · webhook · idempotency` and both
+  resumes' yellow `Soniox · JSONL · DEFINER · Duffing · WebSockets · Supabase`,
+  with the same chip (Needs Work! / On Track!).
+- **Section Specific fails on exactly the checks VMock failed** — Degree
+  Styling and Job Title Styling on the 69 with Personal Details clean, Phone
+  Number alone on Masters_1.
+- **"Good Job!" panels carry praise and nothing else**, as VMock's do.
+
 - **Every Overall Format checklist matches check for check.** 69 → the same 3
   failures out of 9; 77 → the same 1 out of 9; 93 → 9/9 pass; Masters_1 → the
   same 4 failures out of 11; Yuxuan → 11/11 pass.
@@ -114,6 +123,18 @@ Yuxuan's resume reads `GPA: 3.7/4.0`; VMock's own rendering shows
 `GPA: 3.7  4.0` and then fails the check that demands a `/`. That single lost
 point is the whole of her Presentation gap (29 vs our 30). Reproducing a parser
 defect is not the same as reproducing a rule, so it stays unreplicated.
+
+### Three reason-level differences remain
+- **Masters_1's filler count for "The"** reads 8 here, 5 on VMock. Every other
+  item on that panel matches exactly, `That 1` and `Have 1` and all five
+  pronoun entries included.
+- **Yuxuan's re-examine list runs longer than VMock's twelve.** The two agree
+  on eleven words; this clone also surfaces ECE, ViT, MCP, DSP, MMD, VLM, UCSF
+  and SFT. VMock flags BFCL, CNMAT and DAFx, so it is not simply
+  acronym-tolerant — either its dictionary carries the others or its panel caps
+  at twelve. Nothing observed settles it.
+- **Masters_1's competency chips are attributed differently** (see above): the
+  module total is exact, the per-competency split is not.
 
 ### Rules still unread
 - Extra-curriculars panel text — its weight is arithmetic, its rule is a guess

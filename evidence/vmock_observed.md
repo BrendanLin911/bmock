@@ -526,3 +526,92 @@ panel check for check, and every observed status chip matches.
   Objective/Summary Length, Image Check, Section Spacing
 - Communication / Leadership / Teamwork / Initiative panels
 - The remainder of VMock's common-verb list for Overuse
+
+---
+
+# Round 8 — making the REASONS match, not just the numbers
+
+Auditing every finding against every observed panel turned up eight
+divergences. Six are fixed; two are documented below as open.
+
+## Fixed
+
+**Degree Styling was applying the wrong benchmark's rule.** The rule text is
+benchmark-specific — "No italics, not abbreviated" on CMU Resumes, "Consistent
+Styling, not abbreviated" on CMU Masters – Technical — but the engine read a
+single global setting, so Masters_1's italicised degree lines failed a check
+VMock passed. The rule is now read from the active profile, and "Consistent
+Styling" compares the degree lines against each other instead of banning
+italics.
+
+**Personal Details → Font Size Check was measuring the document body.** That
+double-counted Overall Format's own Font Size Check: the 69 resume failed that
+one on its Technical Skills block, and VMock still passed its Personal Details
+group. Its rule has never been read and every observed resume passed it, so it
+is now measured and reported, never failed — the same treatment the other
+unread checks get.
+
+With both fixed, Section Specific matches its panel exactly on both resumes
+where one was read: the 69 fails Degree Styling and Job Title Styling with
+Personal Details clean; Masters_1 fails Phone Number alone.
+
+**"Good Job!" panels were still printing complaints.** Masters_1 has a bullet
+opening on a noun and another opening on "Provided", and VMock's Action
+Oriented panel said only *"You have done a good job of using action-oriented
+language in your resume"*. A chip that reads Good Job! now carries the praise
+line and nothing else.
+
+**Spell Check chip was wrong at full marks.** OBSERVED: yellow words cost
+nothing but still drop the chip from "Good Job!" to "On Track!". The 77 and
+Yuxuan's both read On Track! with a clean score. The all-or-nothing pass no
+longer overwrites a chip a sub-parameter set for itself.
+
+**Specifics was counting bullets instead of naming sections.** OBSERVED
+wording: *"Include more quantification of the impact and scope of your work in
+the following sections:"* → chip `projects`. On that resume Projects ran 3 of
+13 bullets quantified and Experience 1 of 6, and only `projects` was named —
+the section holding the most unquantified bullets, not the lowest share.
+
+**Four spelling defects.**
+
+1. *A zero-width ligature scrambled real words.* Some Times/LaTeX PDFs emit
+   "fi" as a single char with x0 == x1, drawn at the x of the glyph AFTER it.
+   Sorting left to right turned **five** into **"vfi e"** — wrong text for
+   every downstream check, plus a phantom misspelling VMock never saw. Zero-
+   width chars are now pinned to the left of their successor.
+2. *"Poincaré" was being cut to "Poincar"* because the tokeniser only matched
+   [A-Za-z]. It is Unicode-aware now, and snake_case identifiers (`solve_ivp`)
+   are skipped as code — VMock's red list was exactly {rebasing, webhook,
+   idempotency} on a resume that names one.
+3. *The candidate's own name was flagged.* "Yuxuan" is the first unknown token
+   on her page and VMock did not list it among the twelve words it surfaced.
+4. *Four words VMock flags were whitelisted here* — fastapi, websocket,
+   websockets, supabase — and two it flags were being accepted from hunspell's
+   affix rules: **DEFINER** (define → definer) and **Duffing** (duff →
+   duffing). VMock's dictionary does not carry those derived forms.
+
+The 69 and the 77 now reproduce their Spell Check panels word for word:
+
+    69   Red     rebasing  webhook  idempotency
+         Yellow  Soniox  JSONL  DEFINER  Duffing  WebSockets  Supabase
+    77   Yellow  Soniox  JSONL  DEFINER  Duffing  WebSockets  Supabase
+
+## Open
+
+**Masters_1's filler count for "The" reads 8 here and 5 on VMock.** Every other
+item on that panel matches exactly — `That 1`, `Have 1`, and all five pronoun
+entries. Where the other three occurrences are excluded is not known.
+
+**Yuxuan's re-examine list runs longer than VMock's twelve.** After the fixes
+above the two agree on Toolchains, vLLM, FastAPI, MLOps, BFCL, CNMAT,
+Audealize, SocialFX, DAFx, Pydantic and SonAura, but this clone also surfaces
+ECE, ViT, MCP, DSP, MMD, VLM, UCSF and SFT. VMock flags BFCL, CNMAT and DAFx,
+so it is not simply acronym-tolerant; either its dictionary carries the others
+or its panel caps at twelve. Nothing observed settles it, so nothing is
+guessed.
+
+**Masters_1's competency chips are attributed differently.** VMock: Analytical,
+Communication and Leadership at Good Job!, Teamwork On Track! (4 bullets),
+Initiative On Track! (1 bullet). This clone gets the module total exactly right
+(23/30) but reads Leadership as On Track! and Initiative as Good Job!. That is
+the skill-database gap — see CHANGES.md.

@@ -12,6 +12,7 @@ alignment of all resume elements". It is text-layout analysis, not vision.
 
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -320,21 +321,31 @@ def _detect_gutter(words: List[Word], width: float, height: float):
     if len(bands) < 6:
         return None
     lo, hi = width * 0.20, width * 0.80
-    step = 2.0
     best = None
     best_shared = 0
-    x = lo
-    while x < hi:
-        if any(w.x0 < x < w.x1 for w in body):
-            x += step
-            continue
-        start = x
-        while x < hi and not any(w.x0 < x < w.x1 for w in body):
-            x += step
-        span = x - start
+    # Sweep the word intervals rather than stepping a fixed grid across the
+    # page. The grid cost (0.6 * width / step) * len(words) is driven by the
+    # MediaBox, which the uploader controls: a page declaring width=200000
+    # turned this into tens of millions of comparisons and pinned a core.
+    # Walking the sorted intervals is O(n log n) whatever the page width, and
+    # it finds exact gap edges instead of 2pt-quantised ones.
+    spans = sorted((w.x0, w.x1) for w in body if w.x1 > lo and w.x0 < hi)
+    gaps = []
+    cursor = lo
+    for x0, x1 in spans:
+        if x0 > cursor:
+            gaps.append((cursor, min(x0, hi)))
+        cursor = max(cursor, x1)
+        if cursor >= hi:
+            break
+    if cursor < hi:
+        gaps.append((cursor, hi))
+
+    for start, end in gaps:
+        span = end - start
         if span < 0.28 * PT_PER_IN:
             continue
-        mid = (start + x) / 2.0
+        mid = (start + end) / 2.0
         shared = sum(
             1
             for band in bands
@@ -348,7 +359,7 @@ def _detect_gutter(words: List[Word], width: float, height: float):
         if left_only == 0 and right_only == 0:
             continue
         if shared > best_shared or (shared == best_shared and best and span > best[1] - best[0]):
-            best, best_shared = (start, x), shared
+            best, best_shared = (start, end), shared
     return best
 
 
@@ -420,6 +431,38 @@ def _glue_ratio(words) -> float:
     return sum(1 for t in tokens if len(t) >= 22) / len(tokens)
 
 
+def _fix_zero_width_chars(page) -> int:
+    """Give ligature glyphs that report no advance width a sortable position.
+
+    Some LaTeX/Times PDFs emit "fi", "fl" and friends as a single char whose x0
+    equals its x1, drawn at the x of the glyph AFTER it. pdfplumber sorts chars
+    left to right, so a zero-width "fi" sitting a fraction to the right of the
+    "v" that follows it turns "five" into "vfi e" -- wrong text for every
+    downstream check, and a spurious "misspelling" on top.
+
+    Document order is correct in these files, so a zero-width char is pinned
+    immediately to the left of its successor.
+    """
+    try:
+        chars = page.chars
+    except Exception:
+        return 0
+    fixed = 0
+    for i, c in enumerate(chars):
+        try:
+            if c["x1"] - c["x0"] > 0.01 or not str(c.get("text", "")):
+                continue
+        except (KeyError, TypeError):
+            continue
+        nxt = chars[i + 1] if i + 1 < len(chars) else None
+        if not nxt or abs(nxt.get("top", 0) - c.get("top", 0)) > 1.0:
+            continue
+        c["x1"] = nxt["x0"]
+        c["x0"] = nxt["x0"] - 0.01
+        fixed += 1
+    return fixed
+
+
 def _extract_words_adaptive(page, doc: "Document"):
     """Extract words, tightening the split tolerance if the page comes back glued.
 
@@ -427,6 +470,7 @@ def _extract_words_adaptive(page, doc: "Document"):
     below a normal inter-word gap and above inter-letter kerning. The absolute
     fallbacks handle chars that report no size.
     """
+    _fix_zero_width_chars(page)
     attempts = [
         {"x_tolerance_ratio": 0.18, "x_tolerance": 1.5},
         {"x_tolerance_ratio": 0.12, "x_tolerance": 1.0},
@@ -465,17 +509,44 @@ def _extract_words_adaptive(page, doc: "Document"):
     return best or []
 
 
-def parse_pdf(path: str) -> Document:
-    doc = Document(path=str(path))
+# Limits on what counts as a resume at all. Both are enforced before any
+# per-page work, because both are attacker-controlled and cheap to declare:
+# a 48KB file can claim 300 pages, and a 2KB file can claim a 100-inch page
+# that rasterises to gigabytes.
+MAX_PAGES = 30
+MAX_PAGE_PT = 3400          # ~47in; the PDF spec allows 200in
+
+
+def parse_pdf(src) -> Document:
+    """Parse a PDF from a path or any binary file-like object.
+
+    Accepting a stream is what lets the web app score an upload without ever
+    writing it to disk.
+    """
+    name = src if isinstance(src, (str, bytes, os.PathLike)) else ""
+    doc = Document(path=str(name))
+    if hasattr(src, "seek"):
+        src.seek(0)
     try:
-        pdf_ctx = pdfplumber.open(path)
+        pdf_ctx = pdfplumber.open(src)
     except Exception as exc:                # noqa: BLE001 - any pdfminer failure
         raise UnreadablePDF(
             "This file could not be opened as a PDF. Re-export it from Word or "
             f"your editor and try again.  ({type(exc).__name__})"
         ) from exc
     with pdf_ctx as pdf:
+        if len(pdf.pages) > MAX_PAGES:
+            raise UnreadablePDF(
+                f"This document has {len(pdf.pages)} pages. A resume is one or two; "
+                f"this tool reads at most {MAX_PAGES}."
+            )
         for i, page in enumerate(pdf.pages, start=1):
+            if float(page.width) > MAX_PAGE_PT or float(page.height) > MAX_PAGE_PT:
+                raise UnreadablePDF(
+                    f"Page {i} measures {float(page.width) / 72:.0f}x"
+                    f"{float(page.height) / 72:.0f} inches, which is not a page "
+                    "size this tool can read."
+                )
             try:
                 raw = _extract_words_adaptive(page, doc)
             except Exception as exc:  # pragma: no cover - malformed pdf

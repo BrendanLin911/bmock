@@ -5,37 +5,26 @@ from __future__ import annotations
 import html
 import json
 import os
+import re
 from typing import Any, Dict
 
 WEB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
 
-TEMPLATE = """<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Resume Score - {filename}</title>
-<style>
-{css}
-</style>
-</head>
-<body>
-<div class="topbar">
-  <div class="brand"><i></i> Resume Score</div>
-  <span class="badge">rule-based &middot; no LLM</span>
-  <span class="fname">{filename}</span>
-</div>
-<div id="report"></div>
-<script>
-{js}
-</script>
-<script>
-var __DATA__ = {data};
-window.VMockReport.render(__DATA__, document.getElementById("report"));
-</script>
-</body>
-</html>
-"""
+# The template is a real file, shared with the browser: web/boot.js fetches
+# and fills the same markers, so a report saved from the page and one written
+# by the CLI are the same document.
+TEMPLATE_NAME = "report-template.html"
+
+# `<`, `>` and `&` never appear outside a string in JSON text, so escaping them
+# wholesale makes `</script`, `<!--` and `<script` unrepresentable in the
+# payload. Escaping only `</` leaves the tokenizer's escaped-script states open:
+# a bullet containing `<!--` followed by `<script` swallows the closing tag and
+# the report renders blank. U+2028/9 are JS line terminators, legal in JSON.
+_JS_ESCAPE = {
+    "<": "\\u003c", ">": "\\u003e", "&": "\\u0026",
+    "\u2028": "\\u2028", "\u2029": "\\u2029",
+}
+_MARKER_RE = re.compile(r"\{\{(CSS|JS|DATA|FILENAME)\}\}")
 
 
 def _read(name: str) -> str:
@@ -43,15 +32,21 @@ def _read(name: str) -> str:
         return f.read()
 
 
+def json_for_script(payload: str) -> str:
+    return "".join(_JS_ESCAPE.get(c, c) for c in payload)
+
+
 def render_html(report_dict: Dict[str, Any]) -> str:
-    payload = json.dumps(report_dict, ensure_ascii=False)
-    payload = payload.replace("</", "<\\/")          # keep it out of </script>
-    return TEMPLATE.format(
-        filename=html.escape(str(report_dict.get("filename", "resume.pdf")), quote=True),
-        css=_read("style.css"),
-        js=_read("app.js"),
-        data=payload,
-    )
+    parts = {
+        "CSS": _read("style.css"),
+        "JS": _read("app.js"),
+        "DATA": json_for_script(json.dumps(report_dict, ensure_ascii=False)),
+        "FILENAME": html.escape(str(report_dict.get("filename", "resume.pdf")), quote=True),
+    }
+    # A callable replacement: str.format breaks on any brace in the CSS, and a
+    # plain replacement string would interpret `$&` and `` $` `` -- resumes are
+    # full of dollar signs ("Reduced spend by $2.4M").
+    return _MARKER_RE.sub(lambda m: parts[m.group(1)], _read(TEMPLATE_NAME))
 
 
 def write_html(report_dict: Dict[str, Any], path: str) -> str:

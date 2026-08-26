@@ -130,8 +130,10 @@ def main(argv=None) -> int:
     s.set_defaults(func=cmd_score)
 
     v = sub.add_parser("serve", help="run the local web app")
-    v.add_argument("--host", default="127.0.0.1")
-    v.add_argument("--port", type=int, default=8420)
+    # Both default to None so serve() can tell "the user named one" from
+    # "nobody did" -- only the latter is allowed to scan for a free port.
+    v.add_argument("--host", default=None)
+    v.add_argument("--port", type=int, default=None)
     v.add_argument("--benchmark")
     v.add_argument("--no-browser", action="store_true")
     v.set_defaults(func=cmd_serve)

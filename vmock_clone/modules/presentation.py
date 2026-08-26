@@ -497,13 +497,20 @@ def _section_specific(doc: Document, st: Structure, cfg: Config) -> SubScore:
         "XXX-XXX-XXXX or XXX.XXX.XXXX format",
         raw or "no phone number found"))
 
-    heading_ids = {id(x.heading_line) for x in st.sections if x.heading_line}
-    body = [l for l in doc.lines if l.word_count >= 4 and id(l) not in heading_ids]
-    sizes = sorted({round(l.size, 1) for l in body if l.size})
-    checks.append(Check("font_size_check", "Font Size Check",
-                        len(sizes) <= int(cfg.get(
-                            "presentation.geometry.max_distinct_body_font_sizes", 2)),
-                        "", f"body font sizes: {sizes}", observed_rule=False))
+    # This one sits inside the PERSONAL DETAILS group, so it is about the name
+    # and contact block -- not the document body, which Overall Format's own
+    # Font Size Check already covers. Measuring the body here double-counted:
+    # the 69 resume failed Overall Format's Font Size Check on its Technical
+    # Skills block and VMock still PASSED its Personal Details group.
+    #
+    # Its rule text has never been read, and every resume observed passed it,
+    # including ones whose name is set several points larger than the contact
+    # line. So it is measured and reported, never failed -- the same treatment
+    # the other unread checks get.
+    contact_sizes = sorted({round(l.size, 1) for l in st.contact_lines if l.size})
+    checks.append(Check("font_size_check", "Font Size Check", True,
+                        "", f"contact block font sizes: {contact_sizes}",
+                        observed_rule=False))
 
     checks.append(Check("name_check", "Name Check", bool(st.name), "",
                         st.name or "could not identify a name", observed_rule=False))
@@ -528,20 +535,32 @@ def _section_specific(doc: Document, st: Structure, cfg: Config) -> SubScore:
     # OBSERVED rule text, benchmark-specific:
     #   CMU Resumes             -> "No italics, not abbreviated"
     #   CMU Masters - Technical -> "Consistent Styling, not abbreviated"
-    degree_rule = cfg.get(
-        "presentation.degree_styling_rule", "No italics, not abbreviated")
+    profile = cfg.get("benchmark_profiles.default", "cmu_masters_technical")
+    degree_rule = (cfg.get(f"benchmark_profiles.{profile}.degree_styling_rule")
+                   or cfg.get("presentation.degree_styling_rule",
+                              "No italics, not abbreviated"))
     forbid_italics = "italic" in degree_rule.lower()
+    require_consistent = "consistent" in degree_rule.lower()
     deg_bad = []
+    deg_styles = set()
     if edu is not None:
         for entry in edu.entries:
             for line in entry.header_lines:
                 text = line.body_text
                 if not DEGREE_RE.search(text):
                     continue
+                if line.words:
+                    w0 = line.words[0]
+                    deg_styles.add((round(line.size, 1), w0.bold, w0.italic))
                 if forbid_italics and any(w.italic for w in line.words):
                     deg_bad.append(text[:60])
                 elif DEGREE_ABBREV_RE.search(text):
                     deg_bad.append(text[:60])
+    # "Consistent Styling" is the CMU Masters - Technical wording. It asks the
+    # degree lines to match each other; it says nothing about italics, and
+    # Masters_1 -- whose degree lines ARE italicised -- passed it.
+    if require_consistent and len(deg_styles) > 1:
+        deg_bad.append(f"{len(deg_styles)} different degree stylings")
     edu_checks.append(Check("degree_styling", "Degree Styling", not deg_bad,
                             degree_rule, "; ".join(deg_bad[:2])))
     edu_checks.append(Check("university_name", "University Name", True, "", "",
@@ -609,7 +628,12 @@ def _spell_check(doc: Document, st: Structure, cfg: Config) -> SubScore:
     cw = bool(cfg.get("presentation.spell.commonwealth_ok", True))
     per_red = float(cfg.get("presentation.points_per_misspelling", 1.0))
 
-    hits = spell.check_with_context(doc.lines, aggressive=True, commonwealth_ok=cw)
+    # OBSERVED: VMock never surfaces the candidate's own name. Yuxuan Cai's
+    # resume produced twelve words to re-examine and "Yuxuan" -- the first
+    # unknown token on the page -- was not one of them.
+    own = {t.lower() for t in re.findall(r"[A-Za-z][A-Za-z'\-]+", st.name or "")}
+    hits = spell.check_with_context(doc.lines, aggressive=True,
+                                    commonwealth_ok=cw, extra_ok=own)
     red, yellow = [], []
     for word, _ in hits:
         (red if spell.classify(word) == "red" else yellow).append(word)
@@ -657,7 +681,26 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
             failed = any(f.severity == "error" and f.points_lost > 0
                          for f in sub.all_findings)
             sub.points = 0.0 if failed else sub.max_points
-            sub.status = "Needs Work!" if failed else "Good Job!"
+            if failed:
+                sub.status = "Needs Work!"
+            elif sub.status != "On Track!":
+                # OBSERVED: Spell Check reads "On Track!" at FULL marks when the
+                # resume contains words to re-examine -- "Words highlighted in
+                # yellow will not result in any deduction of marks." A chip is
+                # not a score, so a sub-parameter that set one for itself keeps
+                # it.
+                sub.status = "Good Job!"
+
+    # OBSERVED: at "Good Job!" VMock's panel shows the praise line and nothing
+    # else. Its Action Oriented panel on Masters_1 -- a resume with a bullet
+    # that opens on a noun and another that opens on "Provided" -- said only
+    # "You have done a good job of using action-oriented language in your
+    # resume". Findings that cost nothing stay: the yellow spell list is shown
+    # under "On Track!" and is explicitly free.
+    for sub in subs:
+        if sub.status == "Good Job!":
+            sub.findings = [f for f in sub.findings
+                            if f.severity in ("good", "info")]
 
     declared = sum(s.max_points for s in subs)
     total = sum(s.points for s in subs)

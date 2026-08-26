@@ -20,9 +20,15 @@ from typing import List, Set, Tuple
 
 from .lexicons import COMMONWEALTH_OK, MONTH_TOKENS, TECH_WHITELIST
 
+# Words VMock surfaced for re-examination that a hunspell dictionary accepts.
+FORCE_UNKNOWN = {"definer", "duffing"}
+
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "en_us_words.txt")
 
-TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z'\-]*[A-Za-z]|[A-Za-z]")
+# Unicode letters, so an accented proper noun stays one token. Matching only
+# [A-Za-z] split "Poincaré" into "Poincar" and reported that stump as an
+# unknown word -- something VMock never did.
+TOKEN_RE = re.compile(r"[^\W\d_][\w'\-]*[^\W\d_]|[^\W\d_]", re.UNICODE)
 SKIP_RE = re.compile(
     r"""(
         \b[\w.+-]+@[\w.-]+\b            # emails
@@ -124,7 +130,21 @@ def check(
         low = raw.lower().strip("-'")
         if not low or len(low) < 3:
             continue
+        if "_" in low:
+            # snake_case is code, not prose. The 69 resume names solve_ivp in a
+            # parenthetical and VMock's red list was exactly {rebasing, webhook,
+            # idempotency} -- it never called an identifier a misspelling.
+            continue
         if low in seen:
+            continue
+        if low in FORCE_UNKNOWN:
+            # OBSERVED: VMock flagged "DEFINER" and "Duffing" for re-examination
+            # even though hunspell's affix rules derive "definer" from define
+            # and "duffing" from duff. VMock's dictionary evidently does not
+            # carry those rare derived forms. Only words VMock has actually
+            # been seen to flag belong here.
+            bad.append(raw)
+            seen.add(low)
             continue
         if low in words or low in TECH_WHITELIST or low in MONTH_TOKENS or low in extra_ok:
             continue
@@ -193,4 +213,14 @@ def check_with_context(
                 continue
             seen.add(tok.lower())
             out.append((tok, line.text))
-    return out
+    # OBSERVED: the 69 resume writes both "WebSocket" and "WebSockets" and
+    # VMock listed one entry, the plural. A word and its plural are one item.
+    by_stem = {}
+    for tok, ctx in out:
+        stem = tok.lower().rstrip("s")
+        keep = by_stem.get(stem)
+        if keep is None or len(tok) > len(keep[0]):
+            by_stem[stem] = (tok, ctx)
+    kept = {id(v) for v in by_stem.values()}
+    return [pair for pair in out if id(by_stem.get(pair[0].lower().rstrip("s"))) in kept
+            and by_stem.get(pair[0].lower().rstrip("s"))[0] == pair[0]]

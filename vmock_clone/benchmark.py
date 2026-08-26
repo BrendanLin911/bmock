@@ -54,8 +54,10 @@ def build(folder: str, name: str, cfg: Optional[Config] = None, label: str = "")
         "min": round(min(scores), 1),
         "max": round(max(scores), 1),
         "module_means": {k: round(statistics.mean(v), 2) for k, v in per_module.items() if v},
-        "source_folder": os.path.abspath(folder),
-        "skipped": skipped,
+        # Deliberately no source_folder and no skipped filenames. A cohort is
+        # built from real people's resumes, and this file is read straight into
+        # the API response -- anything written here is published.
+        "n_skipped": len(skipped),
     }
     os.makedirs(ROOT, exist_ok=True)
     out = os.path.join(ROOT, f"{name}.json")

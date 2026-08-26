@@ -344,6 +344,10 @@ benchmark_profiles:
       - section_styling
       - image_check
       - section_spacing
+    # OBSERVED rule text on this benchmark. The CMU Resumes wording is
+    # different ("No italics, not abbreviated"), and Masters_1 -- whose degree
+    # lines are italicised -- passed this check.
+    degree_styling_rule: "Consistent Styling, not abbreviated"
     impact_subparameters: [action_oriented, specifics, overuse, avoided_words]
 
   cmu_resumes:

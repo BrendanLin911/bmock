@@ -545,7 +545,14 @@ MONTHS_BAD_ABBR = {"sept", "sept.", "jan.", "feb.", "mar.", "apr.", "jun.",
 TECH_WHITELIST = {
     "python", "numpy", "pandas", "scipy", "sklearn", "scikit", "pytorch",
     "tensorflow", "keras", "matplotlib", "seaborn", "plotly", "jupyter",
-    "anaconda", "conda", "pypi", "flask", "django", "fastapi", "sqlalchemy",
+    "anaconda", "conda", "pypi", "flask", "django", "sqlalchemy",
+    # OBSERVED accepted by VMock -- present in a resume it scored and absent
+    # from the "Re-examine the spellings" list it printed for that resume.
+    "asr", "poincaré", "poincare", "architected", "multithreading",
+    "leaderboard",
+    # OBSERVED flagged by VMock, so deliberately NOT whitelisted:
+    #   fastapi, websocket, websockets, supabase
+
     "postgres", "postgresql", "mysql", "sqlite", "mongodb", "redis", "kafka",
     "hadoop", "spark", "pyspark", "hive", "presto", "snowflake", "databricks",
     "airflow", "dbt", "looker", "tableau", "powerbi", "sas", "stata", "spss",
@@ -585,8 +592,7 @@ TECH_WHITELIST = {
     "stratification", "poststratification", "multilevel", "bayesian",
     "frequentist", "heteroskedasticity", "multicollinearity", "bootstrapping",
     "tokenization", "embeddings", "finetuning", "quantization", "inference",
-    "middleware", "serverless", "microservice", "microservices", "websocket",
-    "websockets", "supabase", "railway", "vite", "tailwind", "deno", "stripe",
+    "middleware", "serverless", "microservice", "microservices", "railway", "vite", "tailwind", "deno", "stripe",
     "sso", "oauth2", "cors", "csrf", "xss", "sql injection", "observability",
     "telemetry", "throughput", "latency", "concurrency", "idempotence",
     "backtest", "backtesting", "walkforward", "changelog", "monorepo",

@@ -439,6 +439,79 @@ class TestAgainstRealVMockScores(unittest.TestCase):
         self.assertEqual(chips["overuse"], "On Track!")
         self.assertEqual(chips["avoided_words"], "Needs Work!")
 
+    def test_observed_spell_lists(self):
+        """VMock's Spell Check panel on the 69 and the 77, verbatim."""
+        for name, red, yellow, chip in (
+            ("Brendan_Lin_Resume_69.pdf",
+             ["rebasing", "webhook", "idempotency"],
+             ["Soniox", "JSONL", "DEFINER", "Duffing", "WebSockets", "Supabase"],
+             "Needs Work!"),
+            ("Brendan_Lin_Resume_77.pdf", [],
+             ["Soniox", "JSONL", "DEFINER", "Duffing", "WebSockets", "Supabase"],
+             "On Track!"),
+        ):
+            with self.subTest(resume=name):
+                rep = self._score(name, "cmu_resumes")
+                pres = next(m for m in rep.modules if m.key == "presentation")
+                sp = next(s for s in pres.subscores if s.key == "spell_check")
+                self.assertEqual(sp.detail["misspelled"], red)
+                self.assertEqual(sp.detail["re_examine"], yellow)
+                self.assertEqual(sp.status, chip)
+
+    def test_observed_section_specific_failures(self):
+        """Which group checks fail, on the two panels that were read."""
+        cases = {
+            # the 69: Personal Details passed; Education and Experience failed
+            ("Brendan_Lin_Resume_69.pdf", "cmu_resumes"):
+                {"Degree Styling", "Job Title Styling"},
+            # Masters_1: only Personal Details failed, on the phone number
+            ("Resume_Masters_1.pdf", "cmu_masters_technical"):
+                {"Phone Number"},
+        }
+        for (name, profile), want in cases.items():
+            with self.subTest(resume=name):
+                rep = self._score(name, profile)
+                pres = next(m for m in rep.modules if m.key == "presentation")
+                ss = next(s for s in pres.subscores if s.key == "section_specific")
+                got = {f.message for f in ss.all_findings if f.severity == "error"}
+                self.assertEqual(got, want)
+
+    def test_observed_overall_format_failures(self):
+        """Every Overall Format checklist that was read off the product."""
+        cases = {
+            ("Brendan_Lin_Resume_69.pdf", "cmu_resumes"):
+                ({"Bullet Check", "Date Formatting", "Font Size Check"}, 9),
+            ("Brendan_Lin_Resume_77.pdf", "cmu_resumes"):
+                ({"Bullet Check"}, 9),
+            ("Brendan_Lin_Resume_93.pdf", "cmu_resumes"): (set(), 9),
+            ("Resume_Masters_1.pdf", "cmu_masters_technical"):
+                ({"Bullet Alignment", "Bullet Check", "Bullet Count",
+                  "Date Formatting"}, 11),
+            ("Yuxuan_Cai_Resume_Aug.pdf", "cmu_masters_technical"): (set(), 11),
+        }
+        for (name, profile), (want, total) in cases.items():
+            with self.subTest(resume=name):
+                rep = self._score(name, profile)
+                pres = next(m for m in rep.modules if m.key == "presentation")
+                of = next(s for s in pres.subscores if s.key == "overall_format")
+                got = {c["label"] for c in of.detail["checks"] if c["passed"] is False}
+                self.assertEqual(got, want)
+                self.assertEqual(of.detail["total"], total)
+
+    def test_good_job_panels_carry_no_complaints(self):
+        """VMock's Good Job! panels show praise only -- Masters_1's Action
+        Oriented panel said so on a resume with a bullet opening on a noun."""
+        for name, profile, _ in REFERENCE_SCORES:
+            with self.subTest(resume=name):
+                rep = self._score(name, profile)
+                for mod in rep.modules:
+                    for s in mod.subscores:
+                        if s.status != "Good Job!":
+                            continue
+                        bad = [f.message for f in s.all_findings
+                               if f.severity in ("error", "warn")]
+                        self.assertEqual(bad, [], f"{mod.label}/{s.label}")
+
     def test_observed_overuse_words(self):
         """VMock's own chips, verbatim: Masters_1 showed "Analyzed 3" and
         "Provided/Providing 3"; Yuxuan's showed "Developed 3" and

@@ -406,14 +406,38 @@ def _specifics(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
     penalty = min(0.25, (n_passive / len(fbs)) * passive_pen)
     sub.points = clamp(mx * (raw - penalty), 0, mx)
 
+    # OBSERVED panel wording. VMock does not count bullets at you -- it names
+    # the SECTIONS that need more numbers, as chips:
+    #
+    #   "Include more quantification of the impact and scope of your work in
+    #    the following sections:"   -> projects
+    #
+    # On that resume Projects ran 3 of 13 bullets quantified and Experience 1
+    # of 6, and only "projects" was named -- the section carrying the most
+    # unquantified bullets, not the lowest share. Sections are therefore
+    # ordered by how many unquantified bullets they hold. How many chips VMock
+    # will show at once has not been observed.
+    by_section = {}
+    for f in fbs:
+        by_section.setdefault(f.section or "", []).append(f)
+    poor = []
+    for name, group in by_section.items():
+        missing = [x for x in group if not x.quantifiers]
+        if group and (len(group) - len(missing)) / len(group) < q_target:
+            poor.append((name, len(missing), len(group)))
+    poor.sort(key=lambda r: (-r[1], r[0]))
+
     unquantified = [f for f in fbs if not f.quantifiers]
-    if unquantified:
+    if poor:
+        first = next((x for x in unquantified if (x.section or "") == poor[0][0]),
+                     unquantified[0] if unquantified else None)
         sub.findings.append(
             Finding("error" if q_share < 0.35 else "warn",
-                    f"{len(unquantified)} of {len(fbs)} bullets contain no number.",
+                    "Include more quantification of the impact and scope of your "
+                    "work in the following sections:",
                     mx * (1 - q_component) * q_weight,
-                    evidence=unquantified[0].text[:100],
-                    line_index=unquantified[0].index,
+                    evidence="  ".join(name.lower() for name, _, _ in poor[:3]),
+                    line_index=first.index if first else None,
                     fix="Add scale and frequency: how many, how often, how much, how much better.")
         )
     if t_share < t_target:
@@ -869,6 +893,18 @@ _IMPACT_BUILDERS = {
 
 _DEFAULT_IMPACT_SUBS = ["action_oriented", "specifics", "overuse", "avoided_words"]
 
+GOOD_JOB_MESSAGE = {
+    # OBSERVED verbatim on Masters_1's Action Oriented panel.
+    "action_oriented": "You have done a good job of using action-oriented "
+                       "language in your resume",
+    # NOT observed -- no Good Job! panel has been read for these three. Own
+    # wording, deliberately plain.
+    "specifics": "Your bullets carry the numbers and named work they need.",
+    "overuse": "No overused words detected.",
+    "avoided_words": "No filler words or personal pronouns detected.",
+    "extracurriculars": "You have included extra-curricular involvement.",
+}
+
 
 # ---------------------------------------------------------------------------
 def score(doc: Document, st: Structure, cfg: Config) -> Tuple[ModuleScore, List[BulletFeedback]]:
@@ -905,6 +941,15 @@ def score(doc: Document, st: Structure, cfg: Config) -> Tuple[ModuleScore, List[
         ratio = s_.points / s_.max_points
         s_.status = ("Good Job!" if ratio >= good_at
                      else "On Track!" if ratio >= track_at else "Needs Work!")
+        # OBSERVED: at "Good Job!" the panel carries the praise line and nothing
+        # else. Masters_1 has a bullet opening on a noun and another opening on
+        # "Provided", and its Action Oriented panel still said only "You have
+        # done a good job of using action-oriented language in your resume".
+        if s_.status == "Good Job!":
+            s_.findings = [f for f in s_.findings
+                           if f.severity in ("good", "info")]
+            if not s_.findings:
+                s_.findings.append(Finding("good", GOOD_JOB_MESSAGE[s_.key]))
 
     mod = ModuleScore("impact", "Impact", clamp(total, 0, mx), mx, subs)
     return mod, fbs

@@ -322,3 +322,21 @@ table.bul .sec { color: var(--ink-3); font-size: 11px; margin-top: 3px; }
 .note { color: var(--ink-3); font-size: 11.8px; margin-top: 9px; line-height: 1.55; }
 .err { color: var(--red); }
 .foot { color: var(--ink-3); font-size: 11.5px; padding: 16px 18px; line-height: 1.7; }
+
+.uploader .privacy {
+  color: var(--ink-3); font-size: 12.2px; line-height: 1.6; margin: 26px auto 0;
+  max-width: 460px;
+}
+
+/* Print / save-as-PDF: drop the chrome, open every accordion, keep blocks whole.
+   This is what makes Ctrl-P a usable second export path from both the live app
+   and a downloaded report. */
+@media print {
+  .topbar, .uploader, .tabs, .paper-head .legend { display: none !important; }
+  .tabpane { display: block !important; }
+  .app { display: block; height: auto; }
+  .paper-pane, .analysis { overflow: visible; height: auto; border: 0; }
+  details.sub > .detail, details.mod > .inner { display: block !important; }
+  .page, .panel, .blrow, .secrow, details.sub, .mod { break-inside: avoid; }
+  body { background: #fff; color: #111; }
+}
