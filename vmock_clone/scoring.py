@@ -294,7 +294,13 @@ def score_document(
     rep.overall = round(sum(m.points for m in rep.modules), 1)
     rep.zone = zone_for(rep.overall, cfg)
 
-    bm = load_benchmark(cfg, benchmark)
+    # `benchmark` names a check-set profile, not a peer cohort. Passing it
+    # straight through meant asking for the "standard_resumes" check set also
+    # asked for a cohort curve of that name, which does not exist -- so the
+    # peer curve silently fell back to a hard-coded mean of 62 instead of the
+    # 70 in rules.yaml. Only use it here if a cohort of that name really exists.
+    cohort = benchmark if benchmark and cfg.get(f"benchmark.{benchmark}") else None
+    bm = load_benchmark(cfg, cohort)
     pct = _normal_cdf(rep.overall, float(bm.get("mean", 62)), float(bm.get("stdev", 14)))
     rep.benchmark = {
         **bm,

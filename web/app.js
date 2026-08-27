@@ -546,8 +546,14 @@
       return (k ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1], peak).toFixed(1);
     }).join(" ");
     var color = cssVar(ZONE[data.zone] || "--info");
+    // A score at either end would centre its label past the frame edge.
+    var youX = x(data.overall);
+    var youAnchor = youX > W - 46 ? "end" : youX < 46 ? "start" : "middle";
     var w = el("div");
-    w.innerHTML = '<svg class="bell" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' +
+    // preserveAspectRatio="none" stretched the viewBox to whatever width
+    // the panel happened to be while the height stayed pinned, so every
+    // label and stroke came out smeared horizontally. Scale uniformly.
+    w.innerHTML = '<svg class="bell" viewBox="0 0 ' + W + " " + H + '">' +
       '<path d="' + path + " L" + x(100) + " " + (H - pad) + " L" + x(0) + " " + (H - pad) +
       ' Z" fill="' + cssVar("--line-2") + '"/>' +
       '<path d="' + path + '" fill="none" stroke="' + cssVar("--line") + '" stroke-width="1.5"/>' +
@@ -559,7 +565,7 @@
       '<text x="' + x(mean) + '" y="' + (H - 4) + '" fill="' + cssVar("--ink-3") +
       '" font-size="10" text-anchor="middle">cohort mean ' + mean + '</text>' +
       '<text x="' + x(data.overall) + '" y="' + (padTop - 9) + '" fill="' + color +
-      '" font-size="11" font-weight="600" text-anchor="middle">you · ' + Math.round(data.overall) + '</text>' +
+      '" font-size="11" font-weight="600" text-anchor="' + youAnchor + '">you · ' + Math.round(data.overall) + '</text>' +
       "</svg>";
     var kv = el("div", "kv");
     [["Benchmark", bm.label || bm.name], ["Percentile", bm.percentile + "%"],

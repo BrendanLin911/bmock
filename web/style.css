@@ -27,6 +27,11 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
   --topbar-h: 54px;
+  /* Corner radii. One scale, three sizes, deliberately tight:
+     the report reads as a document, and documents have corners. */
+  --r-card: 3px;   /* panels, modules, the page itself */
+  --r-ctl: 2px;    /* buttons, chips, badges, inputs */
+  --r-dot: 2px;    /* indicators, pins, bars, meters */
 }
 
 * { box-sizing: border-box; }
@@ -47,12 +52,12 @@ button { font-family: inherit; }
 }
 .topbar .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; letter-spacing: -.2px; }
 .topbar .brand i {
-  width: 9px; height: 9px; border-radius: 99px; background: var(--accent);
+  width: 9px; height: 9px; border-radius: var(--r-dot); background: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft); display: block;
 }
 .topbar .fname {
   font-family: var(--mono); font-size: 12px; color: var(--ink-2);
-  padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px;
+  padding: 3px 9px; border: 1px solid var(--line); border-radius: var(--r-ctl);
   background: var(--bg-2); max-width: 320px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
@@ -61,14 +66,14 @@ button { font-family: inherit; }
 .topbar label { display: flex; gap: 7px; align-items: center; cursor: pointer; white-space: nowrap; }
 .btn {
   border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
-  border-radius: 7px; padding: 6px 12px; font-size: 12.5px; cursor: pointer;
+  border-radius: var(--r-ctl); padding: 6px 12px; font-size: 12.5px; cursor: pointer;
   transition: .13s;
 }
 .btn:hover { background: var(--panel-3); border-color: var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover { filter: brightness(1.08); }
 .badge {
-  font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 5px;
+  font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: var(--r-ctl);
   border: 1px solid var(--line); color: var(--ink-2); background: var(--bg-2);
 }
 
@@ -77,7 +82,7 @@ button { font-family: inherit; }
 .uploader h2 { font-size: 22px; margin: 0 0 8px; font-weight: 650; letter-spacing: -.3px; }
 .uploader .lede { color: var(--ink-2); margin: 0 0 26px; }
 #drop {
-  border: 1.5px dashed var(--line); border-radius: 14px; background: var(--panel);
+  border: 1.5px dashed var(--line); border-radius: var(--r-card); background: var(--panel);
   padding: 46px 24px; cursor: pointer; transition: .15s;
 }
 #drop:hover, #drop.over { border-color: var(--accent); background: var(--panel-2); }
@@ -106,10 +111,10 @@ button { font-family: inherit; }
 }
 .paper-head .legend { margin-left: auto; display: flex; gap: 12px; text-transform: none; letter-spacing: 0; font-size: 11.5px; }
 .paper-head .legend span { display: flex; align-items: center; gap: 5px; }
-.paper-head .legend i { width: 8px; height: 8px; border-radius: 99px; display: block; }
+.paper-head .legend i { width: 8px; height: 8px; border-radius: var(--r-dot); display: block; }
 
 .page {
-  position: relative; margin: 0 auto 22px; background: #fff; border-radius: 4px;
+  position: relative; margin: 0 auto 22px; background: #fff; border-radius: var(--r-ctl);
   box-shadow: var(--shadow); max-width: 860px; width: 100%; overflow: hidden;
 }
 .page img { display: block; width: 100%; height: auto; }
@@ -120,7 +125,7 @@ button { font-family: inherit; }
 
 /* annotation overlay */
 .mark {
-  position: absolute; border-radius: 3px; cursor: pointer; transition: .12s;
+  position: absolute; border-radius: var(--r-ctl); cursor: pointer; transition: .12s;
   border: 1.5px solid transparent; background: transparent;
 }
 .mark:hover { background: rgba(77, 124, 254, .16); }
@@ -129,7 +134,7 @@ button { font-family: inherit; }
 .mark.sev-good { border-bottom-color: var(--green); background: rgba(63, 190, 127, .10); }
 .mark.active { background: rgba(77, 124, 254, .26); border-color: var(--accent); }
 .pin {
-  position: absolute; width: 19px; height: 19px; border-radius: 99px;
+  position: absolute; width: 19px; height: 19px; border-radius: var(--r-dot);
   font-size: 10.5px; font-weight: 700; color: #fff; display: flex;
   align-items: center; justify-content: center; cursor: pointer;
   box-shadow: 0 2px 5px rgba(0, 0, 0, .4); border: 1.5px solid rgba(255, 255, 255, .75);
@@ -166,7 +171,7 @@ button { font-family: inherit; }
 
 /* the tri-band zone meter VMock puts under the score */
 .zonebar { margin-top: 16px; }
-.zonebar .track { display: flex; height: 8px; border-radius: 99px; overflow: hidden; position: relative; }
+.zonebar .track { display: flex; height: 8px; border-radius: var(--r-dot); overflow: hidden; position: relative; }
 .zonebar .track i { display: block; height: 100%; opacity: .85; }
 .zonebar .ticks { display: flex; margin-top: 7px; font-size: 10.5px; color: var(--ink-3); font-family: var(--mono); }
 .zonebar .ticks span { text-align: center; }
@@ -193,7 +198,7 @@ button { font-family: inherit; }
 .tabpane.on { display: block; }
 
 /* module accordions */
-.mod { border: 1px solid var(--line); border-radius: 11px; background: var(--panel); margin-bottom: 12px; overflow: hidden; }
+.mod { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel); margin-bottom: 12px; overflow: hidden; }
 .mod > summary {
   list-style: none; cursor: pointer; padding: 13px 15px; display: grid;
   grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
@@ -205,8 +210,8 @@ button { font-family: inherit; }
 .mod[open] .mname .chev { transform: rotate(90deg); }
 .mod .mpts { font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
 .mod .mbar { grid-column: 1 / -1; }
-.bar { height: 7px; background: var(--line-2); border-radius: 99px; overflow: hidden; }
-.bar > i { display: block; height: 100%; border-radius: 99px; transition: width .55s cubic-bezier(.2,.8,.2,1); }
+.bar { height: 7px; background: var(--line-2); border-radius: var(--r-dot); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: var(--r-dot); transition: width .55s cubic-bezier(.2,.8,.2,1); }
 .mod .inner { border-top: 1px solid var(--line-2); }
 
 /* sub-parameters */
@@ -218,7 +223,7 @@ button { font-family: inherit; }
 }
 .sub > summary::-webkit-details-marker { display: none; }
 .sub > summary:hover { background: var(--panel-2); }
-.sub .status { width: 9px; height: 9px; border-radius: 99px; }
+.sub .status { width: 9px; height: 9px; border-radius: var(--r-dot); }
 .sub .lbl { font-size: 13px; }
 .sub .lbl small { color: var(--ink-3); font-size: 11px; margin-left: 6px; }
 .sub .pts { font-family: var(--mono); font-size: 12px; text-align: right; color: var(--ink-2); }
@@ -232,29 +237,29 @@ button { font-family: inherit; }
 .finding:first-child { border-top: 0; }
 .finding.clickable { cursor: pointer; }
 .finding.clickable:hover .msg { color: var(--accent); }
-.finding.active { background: var(--accent-soft); border-radius: 7px; padding-left: 8px; padding-right: 8px; }
-.dot { width: 7px; height: 7px; border-radius: 99px; margin-top: 7px; flex: none; }
+.finding.active { background: var(--accent-soft); border-radius: var(--r-ctl); padding-left: 8px; padding-right: 8px; }
+.dot { width: 7px; height: 7px; border-radius: var(--r-dot); margin-top: 7px; flex: none; }
 .finding .msg { font-size: 12.8px; }
 .finding .fix { color: var(--ink-2); font-size: 12.2px; margin-top: 3px; }
 .finding .ev {
   font-family: var(--mono); font-size: 11px; color: var(--ink-3);
-  background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 6px;
+  background: var(--bg-2); border: 1px solid var(--line-2); border-radius: var(--r-ctl);
   padding: 4px 7px; margin-top: 5px; display: inline-block; max-width: 100%;
   overflow-wrap: anywhere;
 }
 .finding .cost { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-3); flex: none; }
 .finding .idx {
-  flex: none; width: 17px; height: 17px; border-radius: 99px; font-size: 10px;
+  flex: none; width: 17px; height: 17px; border-radius: var(--r-dot); font-size: 10px;
   font-weight: 700; color: #fff; display: flex; align-items: center; justify-content: center;
   margin-top: 1px;
 }
 .qtag {
   font-size: 9.5px; font-family: var(--mono); border: 1px solid var(--yellow);
-  color: var(--yellow); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px;
+  color: var(--yellow); border-radius: var(--r-ctl); padding: 0 4px; margin-left: 6px; vertical-align: 1px;
 }
 
 /* panel + generic card */
-.panel { border: 1px solid var(--line); border-radius: 11px; background: var(--panel); margin-bottom: 12px; overflow: hidden; }
+.panel { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel); margin-bottom: 12px; overflow: hidden; }
 .panel > h3 {
   margin: 0; padding: 12px 15px; font-size: 11px; letter-spacing: .09em;
   text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--line-2); font-weight: 600;
@@ -273,7 +278,7 @@ ol.actions li:first-child { border-top: 0; }
 ol.actions li:hover .amsg { color: var(--accent); }
 ol.actions .gain {
   font-family: var(--mono); color: var(--green); font-size: 11.5px; flex: none;
-  border: 1px solid color-mix(in srgb, var(--green) 40%, var(--line)); border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--green) 40%, var(--line)); border-radius: var(--r-ctl);
   padding: 1px 6px; margin-top: 1px;
 }
 ol.actions .amsg { font-size: 12.8px; }
@@ -281,7 +286,7 @@ ol.actions .fix { color: var(--ink-2); font-size: 12.2px; margin-top: 3px; }
 
 /* line-by-line cards */
 .blrow {
-  border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel);
   padding: 10px 12px; margin-bottom: 9px; cursor: pointer;
 }
 .blrow:hover { border-color: var(--accent); }
@@ -289,7 +294,7 @@ ol.actions .fix { color: var(--ink-2); font-size: 12.2px; margin-top: 3px; }
 .blhead { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
 .blhead .bln {
   font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
-  border: 1px solid var(--line); border-radius: 4px; padding: 0 5px;
+  border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 0 5px;
 }
 .blhead .blsec { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
 .bltxt { font-size: 12.8px; line-height: 1.5; }
@@ -309,7 +314,7 @@ table.bul .txt { line-height: 1.45; }
 table.bul .sec { color: var(--ink-3); font-size: 11px; margin-top: 3px; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .chip {
-  font-size: 10.5px; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line);
+  font-size: 10.5px; padding: 1px 6px; border-radius: var(--r-ctl); border: 1px solid var(--line);
   color: var(--ink-2); background: var(--bg-2); white-space: nowrap;
 }
 .chip.bad { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); color: var(--red); }
@@ -317,7 +322,7 @@ table.bul .sec { color: var(--ink-3); font-size: 11px; margin-top: 3px; }
 .chip.ok { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); color: var(--green); }
 
 /* section-wise view */
-.secrow { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 12px 14px; margin-bottom: 10px; }
+.secrow { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel); padding: 12px 14px; margin-bottom: 10px; }
 .secrow .h { display: flex; align-items: baseline; gap: 9px; }
 .secrow .h b { font-size: 13.5px; font-weight: 620; }
 .secrow .h .k { color: var(--ink-3); font-size: 11px; font-family: var(--mono); }
@@ -325,7 +330,9 @@ table.bul .sec { color: var(--ink-3); font-size: 11px; margin-top: 3px; }
 .secrow .meta { color: var(--ink-2); font-size: 12.2px; margin-top: 5px; }
 
 /* benchmark */
-.bell { width: 100%; height: 132px; display: block; }
+/* height:auto with a preserved aspect ratio -- see the note in app.js.
+   A fixed height plus a stretched viewBox distorted the labels. */
+.bell { width: 100%; height: auto; display: block; }
 .kv { display: flex; flex-wrap: wrap; gap: 5px 20px; color: var(--ink-2); font-size: 12.2px; margin-top: 10px; }
 .kv b { color: var(--ink); font-weight: 600; }
 .note { color: var(--ink-3); font-size: 11.8px; margin-top: 9px; line-height: 1.55; }
