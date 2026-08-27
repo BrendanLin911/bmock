@@ -470,6 +470,8 @@ SECTION_SYNONYMS = {
         "relevant experience", "employment", "employment history",
         "work history", "industry experience", "internship experience",
         "internships", "professional background", "career history",
+    
+        "relevant work experience", "relevant professional experience", "related experience", "research experience", "research", "academic research experience and projects", "academic and research projects", "research and academic projects", "academic research projects", "engineering experience", "technical experience", "additional experience", "other experience",
     ],
     "leadership": [
         "leadership & activities", "leadership and activities", "leadership",
@@ -477,6 +479,8 @@ SECTION_SYNONYMS = {
         "extracurriculars", "campus involvement", "involvement",
         "activities & leadership", "activities and leadership",
         "leadership & involvement", "co-curriculars", "cocurriculars",
+    
+        "involvement experience", "involvement and leadership", "student involvement", "campus activities", "activities and involvement", "leadership and involvement", "organizations", "clubs and organizations",
     ],
     "skills": [
         "skills", "technical skills", "skills & interests", "skills and interests",
@@ -487,6 +491,8 @@ SECTION_SYNONYMS = {
     "projects": [
         "projects", "selected projects", "technical projects", "academic projects",
         "personal projects", "project experience", "portfolio",
+    
+        "relevant project experience", "relevant projects", "research projects", "design projects", "engineering projects", "academic project experience", "course projects",
     ],
     "research": [
         "research", "research experience", "research projects",
@@ -495,6 +501,8 @@ SECTION_SYNONYMS = {
         "awards", "honors", "honours", "awards & honors", "awards and honors",
         "honors & awards", "honours and awards", "achievements",
         "honors and awards", "distinctions", "scholarships",
+    
+        "honors and distinctions", "awards and recognition",
     ],
     "publications": ["publications", "papers", "presentations & publications"],
     "certifications": [
@@ -507,11 +515,15 @@ SECTION_SYNONYMS = {
     "volunteer": [
         "volunteer", "volunteer experience", "community service",
         "community involvement", "service",
+    
+        "volunteer work", "community engagement",
     ],
     "interests": ["interests", "hobbies", "personal interests"],
     "summary": [
         "summary", "professional summary", "objective", "career objective",
         "profile", "about me", "personal statement",
+    
+        "summary of qualifications", "qualifications", "qualifications summary", "highlights of qualifications", "professional profile", "career summary",
     ],
     "languages": ["languages", "language skills"],
 }

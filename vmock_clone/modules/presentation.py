@@ -36,6 +36,10 @@ from .. import spell
 
 REFERENCES_RE = re.compile(r"references?\s+(available|upon|on)\s+request", re.I)
 EXPECTED_LIKE_RE = re.compile(r"\b(incoming|expected|anticipated|present|current)\b", re.I)
+# A line only expresses a date if it carries a year or a month name.
+DATE_BEARING_RE = re.compile(
+    r"\b(19|20)\d{2}\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)"
+    r"(uary|ruary|ch|il|e|y|ust|tember|ober|ember)?\.?\b", re.I)
 MONTH_YEAR_OK_RE = re.compile(
     r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|"
     r"april|june|july|august|september|october|november|december)\.?\s+(19|20)\d{2}\b",
@@ -133,7 +137,17 @@ def _chk_bullet_alignment(doc, st, cfg):
         return Check("bullet_alignment", "Bullet Alignment", not doc.two_column,
                      "All bullets must be consistently aligned",
                      "two-column layout detected" if doc.two_column else "")
-    indents = sorted({round(b.indent, 0) for b in bullets})
+    # Cluster with a tolerance instead of rounding to whole points. Rounding
+    # split 18.4pt and 18.6pt into "18" and "19" and failed a resume whose
+    # bullets are visually flush. Real misalignment -- a two-column list, a
+    # stray indent -- is tens of points, not fractions of one.
+    tol = float(cfg.get("presentation.geometry.bullet_indent_tolerance_pt", 3.0))
+    raw = sorted(b.indent for b in bullets)
+    indents = []
+    for v in raw:
+        if not indents or v - indents[-1] > tol:
+            indents.append(v)
+    indents = [round(v, 1) for v in indents]
     ok = len(indents) <= 1 and not doc.two_column
     why = f"bullets start at {len(indents)} different indents: {indents[:8]}"
     if doc.two_column:
@@ -190,6 +204,13 @@ def _chk_date_formatting(doc, st, cfg):
                 elif sec.canonical == "education" and span.is_range and not span.is_present:
                     pass
         for line in sec.lines + [l for e in sec.entries for l in e.header_lines]:
+            # "present" and "current" are ordinary English before they are date
+            # words. A bullet reading "make sure they are present tense for
+            # present roles" is prose, not a malformed date -- and flagging it
+            # cost a real resume its entire Overall Format sub-parameter, which
+            # is all-or-nothing. Only look at lines actually expressing a date.
+            if not DATE_BEARING_RE.search(line.text):
+                continue
             if EXPECTED_LIKE_RE.search(line.text) and not MONTH_YEAR_OK_RE.search(line.text):
                 bad.append(line.text.strip()[:40])
     # OBSERVED rule headline: "Consistent date format throughout the section".
@@ -432,9 +453,17 @@ def _essential_sections(doc: Document, st: Structure, cfg: Config) -> SubScore:
     mx = float(cfg.get("presentation.essential_sections", 4))
     sub = SubScore("essential_sections", "Essential Sections", mx, mx)
     present = set(st.canonicals)
+    # OBSERVED: the Essential Sections panel does not demand a section literally
+    # called "Experience". It lists Research, Research Experience, Research
+    # Projects, Projects, Academic Projects, Work Experience, Internships and
+    # more under one group headed "At least one of the above sections should be
+    # present". A resume whose only such section is Projects satisfies it.
+    EQUIVALENT = {"experience": {"experience", "projects", "volunteer"}}
     per = mx / max(1, len(ESSENTIAL_SECTIONS))
     lost = 0.0
     for need in ESSENTIAL_SECTIONS:
+        if present & EQUIVALENT.get(need, {need}):
+            continue
         if need not in present:
             lost += per
             sub.findings.append(

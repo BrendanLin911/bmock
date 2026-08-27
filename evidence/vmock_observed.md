@@ -615,3 +615,44 @@ Communication and Leadership at Good Job!, Teamwork On Track! (4 bullets),
 Initiative On Track! (1 bullet). This clone gets the module total exactly right
 (23/30) but reads Leadership as On Track! and Initiative as Good Job!. That is
 the skill-database gap — see CHANGES.md.
+
+---
+
+# Round 9 — three false positives found by a career-centre template
+
+A University of Georgia sample resume scored 44.7. Three of the deductions
+were the engine's fault, not the document's.
+
+**Section headings career centres actually use were unrecognised.** "RELEVANT
+WORK EXPERIENCE", "RELEVANT PROJECT EXPERIENCE", "SUMMARY OF QUALIFICATIONS"
+and "INVOLVEMENT EXPERIENCE" all mapped to nothing, so the engine reported
+*"Missing required section: Experience"* on a resume with two of them. The
+alias list had "relevant experience" but not "relevant work experience".
+VMock's own Essential Sections panel names Relevant Experience, Internship
+Experience, Research, Research Projects and Academic Projects among others, so
+this was a plain gap. 38 aliases added across six section types.
+
+**The Experience requirement is a GROUP, not a literal heading.** OBSERVED on
+the Essential Sections panel: Research · Research Experience · Research
+Projects · Projects · Academic Projects · Work Experience · Internships and
+more sit under one heading reading *"At least one of the above sections should
+be present"*. A resume whose only such section is Projects satisfies it. The
+engine demanded a section canonicalising to "experience" specifically.
+
+**"present" is ordinary English before it is a date word.** The bullet *"Start
+each bullet point with an action verb, and make sure they are present tense
+for present roles"* matched the incoming/expected/present pattern and failed
+Date Formatting. Because Overall Format is all-or-nothing, that one prose
+match cost the whole 16-point sub-parameter. The check now only reads lines
+carrying a year or a month name.
+
+**Bullet alignment was rounding, not measuring.** Indents were rounded to whole
+points, so 18.4pt and 18.6pt became "18" and "19" — two indents, check failed,
+another 16 points gone on a resume whose bullets are visually flush. Indents
+are now clustered with a 3pt tolerance. Real misalignment (the two-column
+coursework list that VMock flagged on Masters_1 sits at 0pt against 15pt)
+still fails, and the observed panel still reproduces.
+
+Net effect on the sample: **44.7 -> 67.7**, almost all of it Presentation
+(6.5 -> 29.0). No movement on any calibrated resume; the five-report fit
+improved slightly, MAE 0.68 -> 0.54.
