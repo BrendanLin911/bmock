@@ -275,14 +275,25 @@
     }
   }
 
-  /* Prefer a row already in the open tab, so clicking a line does not yank the
-     reader out of whatever they were reading. */
+  /* Which of a line's feedback rows to scroll to.
+
+     Prefer one already in the open tab, so clicking a line does not yank the
+     reader out of whatever they were reading. Then prefer the detailed
+     finding over its one-line echo in "Fix these first": only error-severity
+     findings are repeated up there, so without this a click on a red line
+     lands on a summary carrying no evidence and no fix while the real finding
+     sits further down -- which reads as the click having done nothing. Orange
+     and green lines were never duplicated, which is why they always worked. */
   function pickRow(rows) {
-    for (var i = 0; i < rows.length; i++) {
-      var pane = rows[i].closest ? rows[i].closest(".tabpane") : null;
-      if (!pane || pane.classList.contains("on")) return rows[i];
+    var pool = rows.filter(function (r) {
+      var pane = r.closest ? r.closest(".tabpane") : null;
+      return !pane || pane.classList.contains("on");
+    });
+    if (!pool.length) pool = rows;
+    for (var i = 0; i < pool.length; i++) {
+      if (!pool[i].classList.contains("summary-row")) return pool[i];
     }
-    return rows[0];
+    return pool[0];
   }
 
   /* Selecting a line highlights it on the page and its feedback rows. */
@@ -433,7 +444,13 @@
       mid.appendChild(m);
       if (a.fix) mid.appendChild(el("div", "fix", esc(a.fix)));
       li.appendChild(mid);
-      if (a.line_index !== null && a.line_index !== undefined) registerRow(state, a.line_index, li);
+      if (a.line_index !== null && a.line_index !== undefined) {
+        registerRow(state, a.line_index, li);
+        // This panel repeats findings that already appear under their own
+        // sub-parameter, minus the evidence and the fix. Mark the echo so a
+        // click on the page scrolls to the real one.
+        li.classList.add("summary-row");
+      }
       ol.appendChild(li);
     });
     return panel("Fix these first", ol);
