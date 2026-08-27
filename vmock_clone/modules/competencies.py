@@ -190,11 +190,15 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         # produce. Fine-grained scoring reproduces 30, 29 and 23 alike.
         raw = good_pts * min(1.0, units / good_at) if good_at else good_pts
         pts = round(raw / step) * step
-        if pts >= good_chip:
-            status, sev = "Good Job!", "good"
+        status = ("Good Job!" if pts >= good_chip
+                  else "On Track!" if pts >= track_chip else "Needs Work!")
+        # The chip and the points are separate judgements: a competency can
+        # read as the top chip and still sit under full marks. Praise is for
+        # full marks only -- otherwise the missing point goes unexplained.
+        if pts >= good_pts - 0.005:
+            sev = "good"
             msg = f"You are doing a great job reflecting your {noun} skills!"
         else:
-            status = "On Track!" if pts >= track_chip else "Needs Work!"
             sev = "warn" if pts >= track_chip else "error"
             msg = (f"We recommend you to add more experiences which reflect "
                    f"your {noun} skills well.")

@@ -656,3 +656,43 @@ still fails, and the observed panel still reproduces.
 Net effect on the sample: **44.7 -> 67.7**, almost all of it Presentation
 (6.5 -> 29.0). No movement on any calibrated resume; the five-report fit
 improved slightly, MAE 0.68 -> 0.54.
+
+---
+
+# Round 10 — a deliberate divergence: every deduction is explained
+
+VMock's "Good Job!" panels show a praise line and nothing else. That is
+observed and this clone reproduced it. Reproducing it was a mistake.
+
+Auditing every sub-parameter for the gap between points lost and points its
+findings account for turned up **4.4 unexplained points across the five
+reference resumes** — 1.8 on one of them. A sub-parameter could sit at
+"Good Job!", quietly lose points, and explain none of them, because the praise
+filter had stripped the very findings that carried the cost.
+
+Three separate holes:
+
+1. **The praise filter.** At the top chip, findings were reduced to praise.
+   Now anything that COST points survives whatever the chip says; only
+   complaints that cost nothing are dropped, and the praise line appears only
+   when nothing was lost. `reconcile_subscore` then rescales the surviving
+   claims to the real deficit, so the numbers on screen add up.
+
+2. **Action Oriented had nothing to report.** A resume where every bullet
+   opens with an ordinary verb has no failing bullet, yet still scores below
+   full — an ordinary verb is weighted below a strong one. That shortfall was
+   invisible on three of the five reference resumes. It now says so:
+   "N of M bullets open with an ordinary verb rather than a strong one."
+
+3. **Competencies kept praise under full marks.** A competency at 5.0 of 6.0
+   still reads as the top chip, and still printed the praise line, losing a
+   point silently. Praise is now for full marks only.
+
+The rule going forward, and it outranks fidelity: **if points come off, the
+reader is told why.** A deduction they cannot see is one they cannot fix.
+
+Verified across 32 scorings of 16 PDFs: unexplained total 0.00 points. No
+calibrated resume moved — MAE 0.54, all five within 2. Two tests pin it:
+`test_every_deduction_is_explained` (findings must sum to the loss, and
+something must be visible) and `test_good_job_panels_carry_no_free_complaints`
+(the old rule, narrowed to zero-cost complaints only).

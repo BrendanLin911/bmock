@@ -497,9 +497,16 @@ class TestAgainstRealVMockScores(unittest.TestCase):
                 self.assertEqual(got, want)
                 self.assertEqual(of.detail["total"], total)
 
-    def test_good_job_panels_carry_no_complaints(self):
-        """VMock's Good Job! panels show praise only -- Masters_1's Action
-        Oriented panel said so on a resume with a bullet opening on a noun."""
+    def test_good_job_panels_carry_no_free_complaints(self):
+        """A DELIBERATE DIVERGENCE from the observed product.
+
+        VMock's Good Job! panels show praise and nothing else -- Masters_1's
+        Action Oriented panel said only that, on a resume with a bullet opening
+        on a noun. Reproducing that hid real deductions: a sub-parameter could
+        sit at Good Job!, lose points, and explain none of them.
+
+        The rule here is that any finding which COST points is shown whatever
+        the chip says; only complaints that cost nothing are dropped."""
         for name, profile, _ in REFERENCE_SCORES:
             with self.subTest(resume=name):
                 rep = self._score(name, profile)
@@ -507,9 +514,34 @@ class TestAgainstRealVMockScores(unittest.TestCase):
                     for s in mod.subscores:
                         if s.status != "Good Job!":
                             continue
-                        bad = [f.message for f in s.all_findings
-                               if f.severity in ("error", "warn")]
-                        self.assertEqual(bad, [], f"{mod.label}/{s.label}")
+                        free = [f.message for f in s.all_findings
+                                if f.severity in ("error", "warn")
+                                and f.points_lost <= 0.005]
+                        self.assertEqual(free, [], f"{mod.label}/{s.label}")
+
+    def test_every_deduction_is_explained(self):
+        """No sub-parameter may lose points it does not account for.
+
+        A deduction the reader cannot see is one they cannot fix, so the
+        findings on a sub-parameter must sum to the points it actually lost."""
+        for name, profile, _ in REFERENCE_SCORES:
+            with self.subTest(resume=name):
+                rep = self._score(name, profile)
+                for mod in rep.modules:
+                    for s in mod.subscores:
+                        lost = s.max_points - s.points
+                        if lost <= 0.05:
+                            continue
+                        explained = sum(f.points_lost for f in s.all_findings)
+                        self.assertAlmostEqual(
+                            explained, lost, delta=0.05,
+                            msg=f"{mod.label}/{s.label}: lost {lost:.2f}, "
+                                f"findings explain {explained:.2f}")
+                        visible = [f for f in s.all_findings
+                                   if f.severity in ("error", "warn")]
+                        self.assertTrue(
+                            visible, f"{mod.label}/{s.label} lost {lost:.2f} "
+                                     f"with nothing shown")
 
     def test_observed_overuse_words(self):
         """VMock's own chips, verbatim: Masters_1 showed "Analyzed 3" and

@@ -405,6 +405,21 @@ def _action_oriented(fbs: List[BulletFeedback], cfg: Config) -> SubScore:
                     evidence=f.text[:100], line_index=f.index,
                     fix="Rewrite so you are the subject: “Was awarded X” becomes “Earned X”.")
         )
+    # A bullet opening on an ordinary verb costs nothing on its own, but an
+    # ordinary verb is weighted below a strong one, so a resume with no failing
+    # bullet at all can still sit short of full marks. Without this the reader
+    # sees points missing and no reason for it.
+    shortfall = mx - sub.points
+    if shortfall > 0.005 and not [f for f in sub.findings if f.points_lost > 0.005]:
+        ordinary = counts["standard"] + counts["weak"]
+        sub.findings.append(
+            Finding("warn",
+                    f"{ordinary} of {len(scored)} bullets open with an ordinary verb "
+                    f"rather than a strong one.",
+                    shortfall,
+                    fix="Trade a few for verbs that claim ownership: Engineered, "
+                        "Spearheaded, Negotiated, Automated, Overhauled.")
+        )
     if counts["strong"] and not sub.findings:
         sub.findings.append(
             Finding("good", f"{counts['strong']} bullet(s) open with a strong action verb."))
@@ -1026,9 +1041,17 @@ def score(doc: Document, st: Structure, cfg: Config) -> Tuple[ModuleScore, List[
         # "Provided", and its Action Oriented panel still said only "You have
         # done a good job of using action-oriented language in your resume".
         if s_.status == "Good Job!":
+            # Keep anything that actually cost points, whatever the chip
+            # says. A deduction the reader cannot see is one they cannot
+            # fix. reconcile_subscore then rescales these claims to the
+            # real deficit, so what is on screen adds up to what was lost.
             s_.findings = [f for f in s_.findings
-                           if f.severity in ("good", "info")]
-            if not s_.findings:
+                           if f.severity in ("good", "info")
+                           or f.points_lost > 0.005]
+            if any(f.points_lost > 0.005 for f in s_.findings):
+                # Praise reads as a contradiction beside a deduction.
+                s_.findings = [f for f in s_.findings if f.severity != "good"]
+            elif not s_.findings:
                 s_.findings.append(Finding("good", GOOD_JOB_MESSAGE[s_.key]))
 
     mod = ModuleScore("impact", "Impact", clamp(total, 0, mx), mx, subs)

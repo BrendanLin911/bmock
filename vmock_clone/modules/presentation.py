@@ -760,8 +760,13 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
     # under "On Track!" and is explicitly free.
     for sub in subs:
         if sub.status == "Good Job!":
+            # Same rule as Impact: a finding that cost points is always
+            # shown, whatever the chip says.
             sub.findings = [f for f in sub.findings
-                            if f.severity in ("good", "info")]
+                            if f.severity in ("good", "info")
+                            or f.points_lost > 0.005]
+            if any(f.points_lost > 0.005 for f in sub.findings):
+                sub.findings = [f for f in sub.findings if f.severity != "good"]
 
     declared = sum(s.max_points for s in subs)
     total = sum(s.points for s in subs)
