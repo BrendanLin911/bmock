@@ -222,6 +222,69 @@
     return pane;
   }
 
+  /* Run after the browser has re-laid-out. Opening an accordion or switching a
+     tab changes geometry, and scrolling in the same task measures the OLD
+     positions -- which is how a row ends up parked off the bottom of the pane.
+     Two frames: one for style, one for layout. */
+  function afterLayout(fn) {
+    requestAnimationFrame(function () { requestAnimationFrame(fn); });
+  }
+
+  /* Scroll a node into the middle of ITS OWN pane.
+
+     scrollIntoView walks every scrollable ancestor, the document included, so
+     on a tall report it drags the whole window and leaves the row outside the
+     viewport. Only the pane should move. Below 1080px the panes are
+     overflow:visible and the window is the scroller, so defer to the native
+     call there. */
+  function scrollWithin(node) {
+    var box = node.closest ? node.closest(".analysis, .paper-pane") : null;
+    if (!box || box.scrollHeight <= box.clientHeight + 4) {
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    var delta = node.getBoundingClientRect().top - box.getBoundingClientRect().top;
+    var centred = box.scrollTop + delta - (box.clientHeight - node.offsetHeight) / 2;
+    box.scrollTo({ top: Math.max(0, centred), behavior: "smooth" });
+  }
+
+  /* A finding can live in a tab that is not on screen. A display:none node has
+     no position to scroll to, so show its tab first. */
+  function revealTab(node) {
+    var pane = node.closest ? node.closest(".tabpane[data-tab]") : null;
+    if (!pane || pane.classList.contains("on")) return;
+    var host = pane.parentElement;
+    if (!host) return;
+    host.querySelectorAll(".tabpane[data-tab]").forEach(function (p) {
+      p.classList.remove("on");
+    });
+    pane.classList.add("on");
+    var tabs = host.querySelector(".tabs");
+    if (!tabs) return;
+    tabs.querySelectorAll(".tab").forEach(function (b) {
+      b.classList.toggle("on", b.dataset.tab === pane.dataset.tab);
+    });
+  }
+
+  function openAncestors(node) {
+    var d = node.closest ? node.closest("details") : null;
+    while (d) {
+      d.open = true;
+      d = d.parentElement && d.parentElement.closest
+        ? d.parentElement.closest("details") : null;
+    }
+  }
+
+  /* Prefer a row already in the open tab, so clicking a line does not yank the
+     reader out of whatever they were reading. */
+  function pickRow(rows) {
+    for (var i = 0; i < rows.length; i++) {
+      var pane = rows[i].closest ? rows[i].closest(".tabpane") : null;
+      if (!pane || pane.classList.contains("on")) return rows[i];
+    }
+    return rows[0];
+  }
+
   /* Selecting a line highlights it on the page and its feedback rows. */
   function focusLine(state, idx, from) {
     var prev = state.active;
@@ -237,17 +300,13 @@
     if (from === "paper" && rows.length) {
       // Open every accordion holding a linked row, so picking a line on the
       // page reveals all of its feedback rather than just the top one.
-      rows.forEach(function (r) {
-        var open = r.closest ? r.closest("details") : null;
-        while (open) {
-          open.open = true;
-          open = open.parentElement && open.parentElement.closest
-            ? open.parentElement.closest("details") : null;
-        }
-      });
-      rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      rows.forEach(openAncestors);
+      var target = pickRow(rows);
+      revealTab(target);
+      afterLayout(function () { scrollWithin(target); });
     } else if (from !== "paper" && state.marks[idx]) {
-      state.marks[idx].scrollIntoView({ behavior: "smooth", block: "center" });
+      var mark = state.marks[idx];
+      afterLayout(function () { scrollWithin(mark); });
     }
   }
 
@@ -565,6 +624,9 @@
     defs.forEach(function (d, i) {
       var b = el("button", "tab" + (i === 0 ? " on" : ""), d[0]);
       var p = el("div", "tabpane" + (i === 0 ? " on" : ""));
+      // Pair them, so focusLine can raise the tab holding a finding. The
+      // "Blocked" pane above carries no data-tab and is never a tab.
+      b.dataset.tab = p.dataset.tab = String(i);
       p.appendChild(d[1]());
       b.addEventListener("click", function () {
         tabs.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("on"); });
