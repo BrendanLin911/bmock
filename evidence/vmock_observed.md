@@ -696,3 +696,32 @@ calibrated resume moved — MAE 0.54, all five within 2. Two tests pin it:
 `test_every_deduction_is_explained` (findings must sum to the loss, and
 something must be visible) and `test_good_job_panels_carry_no_free_complaints`
 (the old rule, narrowed to zero-cost complaints only).
+
+---
+
+# Round 11 — "that" removed from the filler vocabulary (deliberate override)
+
+OBSERVED, and now deliberately not reproduced. The Avoided Words panel on
+Masters_1 listed exactly three items: `That 1` · `Have 1` · `The 5`. The 69 ->
+77 rewrite deleted all three "that"s alongside eleven "the"s and gained the
++4 the report had promised. Both point the same way: the product counts it.
+
+It is still bad advice. "That" is usually a relative pronoun doing structural
+work -- "the system that failed" -- and cutting it changes the sentence rather
+than tightening it. On a resume whose only filler was a single "that", the
+result was a 0.3-point deduction and a whole chip band lost, which reads as
+noise rather than feedback.
+
+Fidelity cost, measured over the five reference reports: **MAE 0.54 -> 0.62**,
+all five still within 2 points. The 69 moves 69.3 -> 70.0 and Masters_1
+60.4 -> 60.7; nothing else changes.
+
+The counted vocabulary is now `the` and `have`.
+
+## Two display defects fixed alongside it
+- The word list was concatenated into the message, so it wrapped mid-count
+  ("...could carry meaning: That" / "1"). Every other panel puts its chips in
+  `evidence`; this one does too now.
+- The sub-parameter bar was coloured from the ratio while its dot was coloured
+  from the chip, so one row could show a green bar beside an orange dot. Bar
+  length is still the points earned; its colour is the verdict.

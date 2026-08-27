@@ -395,7 +395,10 @@
     }).length;
     if (bad) lbl.appendChild(el("small", null, bad + (bad === 1 ? " issue" : " issues")));
     sum.appendChild(lbl);
-    sum.appendChild(bar(s.ratio, statusColor(s.ratio)));
+    // Length is the points earned; colour is the verdict. Colouring the
+    // bar from the ratio put a green bar beside an orange dot on the same
+    // row -- one number and one judgement, disagreeing in public.
+    sum.appendChild(bar(s.ratio, chipColor(s.status, s.ratio)));
     sum.appendChild(el("div", "pts", s.points.toFixed(1) + " / " + s.max_points));
     d.appendChild(sum);
 

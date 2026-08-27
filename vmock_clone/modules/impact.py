@@ -769,7 +769,8 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
         sub.findings.append(
             Finding("warn",
                     "You have used some words which are usually considered as "
-                    f"filler words: {top}", mx * 0.4,
+                    "filler words.", mx * 0.4,
+                    evidence=top,
                     fix="Revise the bullet content to minimize the use of filler "
                         "words as much as possible.")
         )
@@ -777,8 +778,9 @@ def _avoided_words(st: Structure, fbs: List[BulletFeedback], cfg: Config) -> Sub
         top = "  ".join(f"{w} {n}" for w, n in pronouns.most_common(6))
         sub.findings.append(
             Finding("error",
-                    "You have included personal pronouns which should be avoided: "
-                    f"{top}", mx * 0.4,
+                    "You have included personal pronouns which should be avoided.",
+                    mx * 0.4,
+                    evidence=top,
                     fix="Rewrite in implied first person: drop \"I\", \"my\" and "
                         "\"I am\" entirely.")
         )
