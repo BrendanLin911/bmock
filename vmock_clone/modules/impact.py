@@ -292,7 +292,10 @@ def find_avoided(text: str, include_articles: bool) -> List[str]:
 
 # ---------------------------------------------------------------------------
 def analyse_bullets(st: Structure, cfg: Config) -> List[BulletFeedback]:
-    include_articles = cfg.quirk("articles_are_filler")
+    # Same setting the scored path uses, so a bullet's flags and the
+    # Avoided Words total can never disagree about what counts as filler.
+    include_articles = bool(
+        (cfg.get("impact.avoided_words_rules", {}) or {}).get("include_articles", True))
     b = cfg.get("impact.bullets", {}) or {}
     ideal_lo = int(b.get("ideal_min_words", 10))
     ideal_hi = int(b.get("ideal_max_words", 26))

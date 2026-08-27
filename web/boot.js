@@ -142,7 +142,6 @@
     setStatus("scoring …");
     var fd = new FormData();
     fd.append("file", file, file.name);
-    fd.append("quirks", document.getElementById("quirks").checked ? "1" : "0");
 
     fetch("/api/score", { method: "POST", body: fd })
       .then(function (r) {

@@ -113,7 +113,7 @@ class TestHeadings(unittest.TestCase):
     def test_normalize(self):
         self.assertEqual(normalize_heading("  EDUCATION:  "), "education")
 
-    def test_ampersand_quirk(self):
+    def test_ampersand_preference_is_reported_not_scored(self):
         self.assertEqual(ampersand_issue("Leadership and Activities"), "Leadership & Activities")
         self.assertIsNone(ampersand_issue("Leadership & Activities"))
 
@@ -184,30 +184,29 @@ class TestEndToEnd(unittest.TestCase):
         self.assertFalse(align["passed"])
         self.assertIn("two-column", align["evidence"])
 
-    def test_quirks_toggle_changes_score(self):
-        """Enabling the full quirk set must cost points, and disabling it must
-        leave no quirk-tagged findings behind."""
-        cfg_on = Config.load()
-        for name, block in cfg_on.data["quirks"].items():
-            if isinstance(block, dict) and "enabled" in block:
-                block["enabled"] = True
-        on = score_document(sample("weak_resume.pdf"), cfg=cfg_on)
+    def test_no_quirk_machinery_survives(self):
+        """The quirks system is gone, and nothing may quietly reintroduce it.
 
-        cfg_off = Config.load()
-        cfg_off.data["quirks"]["strict_vmock_quirks"] = False
-        off = score_document(sample("weak_resume.pdf"), cfg=cfg_off)
-
-        self.assertGreater(off.overall, on.overall)
-        self.assertEqual(off.quirk_cost(), {})
-
-    def test_phone_parens_quirk_is_off_by_default(self):
-        """Direct evidence: a resume with "(555) 010-0199" scored 30/30 on
-        Presentation, so this documented rule ships disabled."""
+        Of the seven quirks that existed, four were declared in rules.yaml and
+        never read by any code, two were off because direct evidence
+        contradicted them, and the last was arbitrary advice from a
+        third-party guide that the product was never seen to apply. A toggle
+        governing one arbitrary rule is worse than no toggle."""
         cfg = Config.load()
-        self.assertFalse(cfg.quirk("phone_parens_penalty"))
-        self.assertNotIn(
-            "phone_parens_penalty", score_document(sample("weak_resume.pdf")).quirk_cost()
-        )
+        self.assertNotIn("quirks", cfg.data)
+        self.assertFalse(hasattr(cfg, "quirk"))
+        rep = score_document(sample("weak_resume.pdf"))
+        self.assertNotIn("quirk_cost", rep.to_dict())
+        for mod in rep.modules:
+            for f in mod.all_findings:
+                self.assertNotIn("quirk", f.to_dict())
+
+    def test_phone_with_parentheses_is_not_penalised(self):
+        """Direct evidence: a resume carrying "(555) 010-0199" scored 30/30 on
+        Presentation, so the documented 15-point deduction is not real."""
+        rep = score_document(sample("strong_resume.pdf"))
+        pres = next(m for m in rep.modules if m.key == "presentation")
+        self.assertNotIn("parenthes", " ".join(f.message for f in pres.all_findings).lower())
 
     def test_claimed_points_never_exceed_available(self):
         """The UI advertises points_lost as recoverable. It must be truthful."""

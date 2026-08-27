@@ -485,17 +485,6 @@ def _essential_sections(doc: Document, st: Structure, cfg: Config) -> SubScore:
             )
     lost += unknown_lost
 
-    if cfg.quirk("heading_ampersand_strict"):
-        pts = cfg.quirk_points("heading_ampersand_strict", 3)
-        for sec in st.sections:
-            pref = ampersand_issue(sec.raw_heading)
-            if pref:
-                lost += pts
-                sub.findings.append(
-                    Finding("error", f"Heading “{sec.raw_heading}” is not on the allowlist.",
-                            pts, quirk="heading_ampersand_strict",
-                            fix=f"Rename it to “{pref}” - the ampersand spelling is the accepted one.")
-                )
 
     for sec in st.sections:
         if sec.canonical in DISCOURAGED_SECTIONS:
@@ -780,20 +769,6 @@ def score(doc: Document, st: Structure, cfg: Config) -> ModuleScore:
         total *= mx / declared
     mod = ModuleScore("presentation", "Presentation", total, mx, subs)
 
-    # ---- quirk: the 15-point phone-parenthesis deduction -------------------
-    if cfg.quirk("phone_parens_penalty"):
-        blob = st.contact_text or doc.text[:400]
-        if PHONE_PARENS_RE.search(blob):
-            pts = cfg.quirk_points("phone_parens_penalty", 15)
-            mod.points = clamp(mod.points - pts, 0, mx)
-            mod.findings.append(
-                Finding("error",
-                        f"Phone number written with parentheses around the area code (-{pts:g} points).",
-                        pts, evidence=PHONE_PARENS_RE.search(blob).group(0),
-                        quirk="phone_parens_penalty",
-                        fix="Write it as 415-555-0182. This single rule is the largest formatting "
-                            "deduction VMock applies, and it is documented by Boston University.")
-            )
 
     if doc.parse_warnings:
         for w in doc.parse_warnings:

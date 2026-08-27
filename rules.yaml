@@ -23,63 +23,6 @@ meta:
   # VMock's own SMART Editor guide: "You must have at least 200 words."
   min_words_for_score: 200
 
-# -----------------------------------------------------------------------------
-#  QUIRKS
-# -----------------------------------------------------------------------------
-#  Rules that real VMock demonstrably applies but that are bad resume advice,
-#  arbitrary, or outright buggy. Documented in university guides and student
-#  press. Turn the whole block off with strict_vmock_quirks: false, or disable
-#  them one at a time.
-# -----------------------------------------------------------------------------
-quirks:
-  strict_vmock_quirks: true
-
-  # BU College of Engineering documents a *15 point* deduction for writing a
-  # phone number as (617) 555-0123 instead of 617-555-0123.
-  # DEFAULT OFF: contradicted by direct evidence. A resume carrying
-  # "(555) 010-0199" scored 30/30 on Presentation against CMU's benchmark.
-  # Either the rule is benchmark-specific or the published figure is wrong.
-  phone_parens_penalty:
-    enabled: false
-    points: 15
-
-  # BU: "'Leadership & Activities' is allowed while 'Leadership and Activities'
-  # is not." Ampersand-only heading allowlist.
-  heading_ampersand_strict:
-    enabled: true
-    points: 3
-
-  # Articles and pronouns counted as filler words. Defensible for "I/we/my",
-  # much less so for "a/the/that", which VMock counts anyway.
-  # DEFAULT OFF: a resume using "a"/"the" freely was marked green on
-  # Avoided Words, so VMock does not appear to count articles.
-  articles_are_filler:
-    enabled: false
-
-  # "Sept" rejected; only "Sep" accepted, no trailing period.
-  # DEFAULT OFF: a resume using "Sept. 2022" and "Aug. 2026" throughout still
-  # scored 30/30 on Presentation.
-  strict_month_abbreviations:
-    enabled: false
-
-  # VMock requires a space-hyphen-space date range: "Jun - Aug 2017".
-  # "June-August 2017" and "Jun -Aug 2017" are both flagged.
-  strict_date_range_spacing:
-    enabled: true
-
-  # VMock's SMART Editor requires the email address in all lowercase.
-  email_lowercase:
-    enabled: true
-
-  # Flags any word missing from the dictionary, including correctly spelled
-  # product and library names (the single most common student complaint).
-  # Turn off to skip tokens that look like proper nouns or tech identifiers.
-  # DEFAULT OFF: "WebSocket", "JSONL", "ASR" and similar were not flagged on a
-  # real run, and false positives here are the most-complained-about behaviour.
-  aggressive_spellcheck:
-    enabled: false
-
-# -----------------------------------------------------------------------------
 #  MODULE WEIGHTS - must sum to 100
 # -----------------------------------------------------------------------------
 modules:

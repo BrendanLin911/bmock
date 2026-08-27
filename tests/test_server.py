@@ -257,7 +257,7 @@ class TestKeepsNothing(unittest.TestCase):
 
     def test_server_error_detail_is_not_returned_to_the_client(self):
         app = ScoreApp()
-        app._config = lambda quirks_on: (_ for _ in ()).throw(
+        app._config = lambda: (_ for _ in ()).throw(
             RuntimeError("/secret/path/rules.yaml exploded")
         )
         out, body = call(app, "POST", "/api/score", multipart(self.pdf),

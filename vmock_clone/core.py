@@ -33,14 +33,6 @@ class Config:
             node = node[part]
         return node
 
-    def quirk(self, name: str) -> bool:
-        """A quirk is active only if the master switch and its own flag are on."""
-        if not self.get("quirks.strict_vmock_quirks", True):
-            return False
-        return bool(self.get(f"quirks.{name}.enabled", False))
-
-    def quirk_points(self, name: str, default: float = 0.0) -> float:
-        return float(self.get(f"quirks.{name}.points", default))
 
 
 @dataclass
@@ -51,7 +43,6 @@ class Finding:
     evidence: str = ""
     fix: str = ""
     line_index: Optional[int] = None
-    quirk: Optional[str] = None    # set when the rule is a reproduced VMock quirk
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

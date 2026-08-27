@@ -206,9 +206,8 @@ class ScoreApp:
         }
 
     # -- helpers ---------------------------------------------------------
-    def _config(self, quirks_on: bool) -> Config:
+    def _config(self) -> Config:
         cfg = Config.load(self.rules)
-        cfg.data.setdefault("quirks", {})["strict_vmock_quirks"] = quirks_on
         return cfg
 
     def _origin_ok(self, environ) -> bool:
@@ -275,12 +274,9 @@ class ScoreApp:
             return json_response(400, {"error": "that does not look like a PDF"})
         filename = _clean_filename(raw_name)
 
-        quirks_on = True
-        if fields.get("quirks"):
-            quirks_on = fields["quirks"][0][1].strip() not in (b"0", b"false", b"")
 
         try:
-            cfg = self._config(quirks_on)
+            cfg = self._config()
             report = score_document(
                 io.BytesIO(data),
                 cfg=cfg,

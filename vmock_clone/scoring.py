@@ -77,20 +77,12 @@ class Report:
                         "fix": f.fix,
                         "evidence": f.evidence,
                         "points": round(f.points_lost, 2),
-                        "quirk": f.quirk,
                         "line_index": f.line_index,
                     }
                 )
         rows.sort(key=lambda r: -r["points"])
         return rows[:n]
 
-    def quirk_cost(self) -> Dict[str, float]:
-        out: Dict[str, float] = {}
-        for mod in self.modules:
-            for f in mod.all_findings:
-                if f.quirk and f.points_lost > 0:
-                    out[f.quirk] = round(out.get(f.quirk, 0.0) + f.points_lost, 2)
-        return out
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -107,7 +99,6 @@ class Report:
             "benchmark": self.benchmark,
             "preview": self.preview,
             "top_actions": self.top_actions(10),
-            "quirk_cost": self.quirk_cost(),
             "meta": self.meta,
         }
 
@@ -275,7 +266,6 @@ def score_document(
         # Basename only: the absolute path is server state, and on a hosted
         # deployment it would hand every visitor the install layout.
         "rules_file": os.path.basename(cfg.path or "rules.yaml"),
-        "quirks_enabled": bool(cfg.get("quirks.strict_vmock_quirks", True)),
         # The red / yellow / green cutoffs, so the UI can draw the zone band
         # against the same numbers the score was judged by.
         "zones": cfg.get("meta.zones", {"red": [0, 32], "yellow": [33, 85], "green": [86, 100]}),

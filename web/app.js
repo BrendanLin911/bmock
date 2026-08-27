@@ -347,12 +347,6 @@
     var mid = el("div");
     var msg = el("div", "msg");
     msg.appendChild(document.createTextNode(esc(f.message)));
-    if (f.quirk) {
-      var q = el("span", "qtag", "VMOCK QUIRK");
-      q.title = "Reproduces a documented VMock rule that is arbitrary or buggy. " +
-                "Disable it in rules.yaml under quirks." + f.quirk;
-      msg.appendChild(q);
-    }
     mid.appendChild(msg);
     if (f.evidence) mid.appendChild(el("div", "ev", esc(f.evidence)));
     if (f.fix) mid.appendChild(el("div", "fix", esc(f.fix)));
@@ -362,6 +356,13 @@
       registerRow(state, f.line_index, row);
     }
     return row;
+  }
+
+  function chipColor(status, ratio) {
+    if (status === "Strong") return cssVar("--green");
+    if (status === "Almost there") return cssVar("--yellow");
+    if (status === "Needs work") return cssVar("--red");
+    return statusColor(ratio);
   }
 
   function statusColor(ratio) {
@@ -380,7 +381,12 @@
     var d = el("details", "sub");
     var sum = el("summary");
     var st = el("div", "status");
-    st.style.background = statusColor(s.ratio);
+    // The dot is the chip, so colour it from the chip. Some sub-parameters
+    // judge categorically -- Specifics asks whether any section still needs
+    // numbers, not what fraction of the points were earned -- so the chip and
+    // the bar can legitimately disagree. Colouring the dot from the ratio made
+    // that look like a contradiction: an orange dot over a green verdict.
+    st.style.background = chipColor(s.status, s.ratio);
     sum.appendChild(st);
     var lbl = el("div", "lbl");
     lbl.appendChild(document.createTextNode(esc(s.label)));
@@ -436,11 +442,6 @@
       var mid = el("div");
       var m = el("div", "amsg");
       m.appendChild(document.createTextNode(esc(a.message)));
-      if (a.quirk) {
-        var q = el("span", "qtag", "QUIRK");
-        q.title = "quirks." + a.quirk + " in rules.yaml";
-        m.appendChild(q);
-      }
       mid.appendChild(m);
       if (a.fix) mid.appendChild(el("div", "fix", esc(a.fix)));
       li.appendChild(mid);
@@ -578,28 +579,6 @@
     return w;
   }
 
-  function quirkPanel(data) {
-    var qc = data.quirk_cost || {};
-    var keys = Object.keys(qc);
-    if (!keys.length) return null;
-    var qn = el("div");
-    var total = keys.reduce(function (a, k) { return a + qc[k]; }, 0);
-    qn.appendChild(el("div", null,
-      "You are losing " + total.toFixed(1) + " points to rules that reproduce real VMock behaviour " +
-      "but are arbitrary or documented as buggy."));
-    var ul = el("ul");
-    ul.style.margin = "9px 0 0"; ul.style.paddingLeft = "18px";
-    keys.sort(function (a, b) { return qc[b] - qc[a]; }).forEach(function (k) {
-      var li = el("li");
-      li.appendChild(el("code", null, "quirks." + k));
-      li.appendChild(document.createTextNode("  −" + qc[k].toFixed(1)));
-      ul.appendChild(li);
-    });
-    qn.appendChild(ul);
-    qn.appendChild(el("div", "note",
-      "Set quirks.strict_vmock_quirks: false in rules.yaml to drop all of them."));
-    return panel("Quirk cost", qn);
-  }
 
   // ------------------------------------------------------------ analysis
   function analysisPane(data, state) {
@@ -627,8 +606,6 @@
           w.appendChild(moduleNode(m, state, i === 0));
         });
         w.appendChild(panel("Peer benchmark", bell(data)));
-        var q = quirkPanel(data);
-        if (q) w.appendChild(q);
         return w;
       }],
       ["Section-wise", function () { return sectionsView(data, state); }],
@@ -662,7 +639,7 @@
     f.appendChild(el("div", null, data.filename + "  ·  " + data.generated_at));
     f.appendChild(el("div", null, "Rules: " +
       String(meta.rules_file || "rules.yaml").split(/[\\/]/).pop() +
-      "  ·  quirks " + (meta.quirks_enabled ? "on" : "off") + "  ·  no language model involved"));
+      "  ·  no language model involved"));
     pane.appendChild(f);
     return pane;
   }

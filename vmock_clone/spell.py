@@ -6,7 +6,7 @@ dictionary with regular inflections expanded. Loaded once and cached.
 
 Real VMock flags any token missing from its dictionary and -- per repeated
 student reports -- will not reliably learn correctly spelled product names.
-Reproducing that is what quirks.aggressive_spellcheck controls: with it on,
+That behaviour is reproduced here: an unknown token is surfaced, and
 "PyTorch" and "scikit-learn" get flagged the way they really do; with it off,
 tokens that look like proper nouns or technical identifiers are skipped.
 """
