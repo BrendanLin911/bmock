@@ -142,6 +142,15 @@ button { font-family: inherit; }
 
 /* right: analysis */
 .analysis { overflow: auto; padding: 0 0 60px; background: var(--bg); }
+/* Room to centre the last finding.
+
+   Clicking a highlighted line scrolls its finding to the middle of this pane,
+   but a row near the end of the content cannot reach the middle: the scroll
+   clamps at scrollHeight - clientHeight and the row parks at the bottom
+   instead. Half a viewport of tail gives every row somewhere to go. Only
+   where this pane is its own scroller -- below 1080px the window scrolls and
+   the padding would just be dead space. */
+@media (min-width: 1081px) { .analysis { padding-bottom: 55vh; } }
 @media (max-width: 1080px) { .analysis, .paper-pane { overflow: visible; height: auto; } }
 
 .score-head { padding: 22px 22px 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
@@ -335,7 +344,9 @@ table.bul .sec { color: var(--ink-3); font-size: 11px; margin-top: 3px; }
   .topbar, .uploader, .tabs, .paper-head .legend { display: none !important; }
   .tabpane { display: block !important; }
   .app { display: block; height: auto; }
-  .paper-pane, .analysis { overflow: visible; height: auto; border: 0; }
+  /* padding-bottom: 0 undoes the scroll-tail above, which would otherwise
+     print as half a blank page. */
+  .paper-pane, .analysis { overflow: visible; height: auto; border: 0; padding-bottom: 0; }
   details.sub > .detail, details.mod > .inner { display: block !important; }
   .page, .panel, .blrow, .secrow, details.sub, .mod { break-inside: avoid; }
   body { background: #fff; color: #111; }
